@@ -6,7 +6,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-950 to-slate-900 text-white flex items-center justify-center">
       <div className="text-center space-y-6 max-w-2xl">
-        <h1 className="text-6xl font-extrabold">
+        <h1 className="text-3x1 md:text-5x1 lg:text-6x1 font-extrabold whitespace-nowrap">
           🏈 GameHeelTigerNeerRines HQ
         </h1>
 
