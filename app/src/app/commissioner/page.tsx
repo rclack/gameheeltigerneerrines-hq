@@ -1,3 +1,4 @@
+import Button from "@/components/Button";
 export default function CommissionerPage() {
   return (
     <main className="min-h-screen bg-slate-100">
@@ -55,45 +56,45 @@ export default function CommissionerPage() {
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">🏆 League Management</h3>
 
-            <button className="mb-2 w-full rounded bg-blue-600 py-2 text-white hover:bg-blue-700">
+            <Button variant="primary" className="mb-2">
               Create League
-            </button>
+            </Button>
 
-            <button className="w-full rounded bg-slate-700 py-2 text-white hover:bg-slate-800">
+            <Button variant="secondary">
               League Settings
-            </button>
+            </Button>
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">👥 Owners</h3>
 
-            <button className="w-full rounded bg-green-600 py-2 text-white hover:bg-green-700">
+            <Button variant="success">
               Manage Owners
-            </button>
+            </Button>
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">🎯 Draft</h3>
 
-            <button className="w-full rounded bg-orange-500 py-2 text-white hover:bg-orange-600">
+            <Button variant="sports">
               Draft Room
-            </button>
+            </Button>
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">📊 Results</h3>
 
-            <button className="w-full rounded bg-purple-600 py-2 text-white hover:bg-purple-700">
+            <Button variant="info">
               Standings
-            </button>
+            </Button>
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">⚙ Administration</h3>
 
-            <button className="w-full rounded bg-red-600 py-2 text-white hover:bg-red-700">
+            <Button variant="danger">
               Scoring Rules
-            </button>
+            </Button>
           </div>
 
         </div>
