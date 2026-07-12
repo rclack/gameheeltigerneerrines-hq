@@ -2,27 +2,30 @@
 
 import { useState } from "react";
 
-import Card from "../ui/Card";
-import Input from "../ui/Input";
-import Button from "../ui/Button";
+import WelcomeStep from "./league-setup/WelcomeStep";
+
+import LeagueBasicsStep from "./league-setup/LeagueBasicsStep";
 
 export default function LeagueSetupWizard() {
+  const [step, setStep] = useState(1);
   const [leagueName, setLeagueName] = useState("");
+  const [season, setSeason] = useState("2026");
 
-  return (
-    <Card title="Kick Off a New Season">
-      <div className="space-y-6">
-        <Input
-          label="League Name"
-          placeholder="Saturday Legends"
-          value={leagueName}
-          onChange={setLeagueName}
-        />
+  if (step === 1) {
+    return (
+      <WelcomeStep
+        onNext={() => setStep(2)}
+      />
+    );
+  }
 
-        <Button>
-          Next →
-        </Button>
-      </div>
-    </Card>
-  );
+return (
+  <LeagueBasicsStep
+    leagueName={leagueName}
+    season={season}
+    onLeagueNameChange={setLeagueName}
+    onSeasonChange={setSeason}
+    onNext={() => setStep(3)}
+  />
+);
 }
