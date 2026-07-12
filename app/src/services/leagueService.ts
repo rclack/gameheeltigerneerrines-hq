@@ -1,4 +1,21 @@
 import { supabase } from "@/lib/supabase";
+import { League } from "@/types/league";
+
+export async function createLeague(
+  league: League
+) {
+  const { data, error } = await supabase
+    .from("leagues")
+    .insert(league)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
 
 export async function getLeagues() {
   const { data, error } = await supabase
@@ -10,5 +27,5 @@ export async function getLeagues() {
     throw error;
   }
 
-  return data;
+  return data ?? [];
 }
