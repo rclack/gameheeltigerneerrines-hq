@@ -10,6 +10,7 @@ interface LeagueBasicsStepProps {
   onLeagueNameChange: (value: string) => void;
   onSeasonChange: (value: string) => void;
 
+  onBack: () => void;
   onNext: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function LeagueBasicsStep({
   season,
   onLeagueNameChange,
   onSeasonChange,
+  onBack,
   onNext,
 }: LeagueBasicsStepProps) {
   return (
@@ -43,12 +45,21 @@ export default function LeagueBasicsStep({
             onChange={onSeasonChange}
           />
 
-          <Button
-            variant="sports"
-            onClick={onNext}
-          >
-            Continue →
-          </Button>
+          <div className="flex justify-between">
+  <Button
+    variant="secondary"
+    onClick={onBack}
+  >
+    ← Back
+  </Button>
+
+  <Button
+    variant="sports"
+    onClick={onNext}
+  >
+    Continue →
+  </Button>
+</div>
 
         </div>
       </Card>
