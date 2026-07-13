@@ -29,3 +29,18 @@ export async function getLeagues() {
 
   return data ?? [];
 }
+
+export async function getLatestLeague() {
+  const { data, error } = await supabase
+    .from("leagues")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
