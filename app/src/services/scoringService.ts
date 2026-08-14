@@ -6,9 +6,12 @@ export type ScoringEventDetail = ScoringEvent & { rule: ScoringRule; team: Team 
 
 export interface ScoringEventFilters {
   teamId?: string;
+  teamIds?: string[];
   week?: number;
   includeVoided?: boolean;
 }
+
+const SCORING_EVENT_PAGE_SIZE = 1000;
 
 export async function getDraftedScoringTeams(
   supabase: SupabaseClient<Database>,
@@ -42,12 +45,18 @@ export async function getLeagueScoringEvents(
   leagueId: string,
   filters: ScoringEventFilters = {},
 ): Promise<ScoringEventDetail[]> {
-  let query = supabase.from("scoring_events").select("*").eq("league_id", leagueId).order("created_at", { ascending: false });
-  if (!filters.includeVoided) query = query.is("voided_at", null);
-  if (filters.teamId) query = query.eq("team_id", filters.teamId);
-  if (filters.week) query = query.eq("week", filters.week);
-  const { data: events, error } = await query;
-  if (error) throw error;
+  const events: ScoringEvent[] = [];
+  for (let from = 0; ; from += SCORING_EVENT_PAGE_SIZE) {
+    let query = supabase.from("scoring_events").select("*").eq("league_id", leagueId).order("created_at", { ascending: false }).order("id").range(from, from + SCORING_EVENT_PAGE_SIZE - 1);
+    if (!filters.includeVoided) query = query.is("voided_at", null);
+    if (filters.teamId) query = query.eq("team_id", filters.teamId);
+    if (filters.teamIds?.length) query = query.in("team_id", filters.teamIds);
+    if (filters.week) query = query.eq("week", filters.week);
+    const { data, error } = await query;
+    if (error) throw error;
+    events.push(...data);
+    if (data.length < SCORING_EVENT_PAGE_SIZE) break;
+  }
   if (!events.length) return [];
 
   const [rulesResult, teamsResult] = await Promise.all([

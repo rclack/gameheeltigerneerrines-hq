@@ -5,6 +5,7 @@ import TeamNameForm from "@/components/league/TeamNameForm";
 import { createClient } from "@/lib/supabase/server";
 import { getDraftParticipants, getDraftPicks, getLeagueDraft, getMemberDraftSlot } from "@/services/draftService";
 import { getLeagueRoster } from "@/services/membershipService";
+import { getLeagueStandings } from "@/services/standingsService";
 import { getActiveTeams } from "@/services/teamService";
 
 export default async function LeaguePage({ params }: { params: Promise<{ leagueId: string }> }) {
@@ -18,8 +19,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
   const { data: membership } = await supabase.from("league_members").select("*").eq("league_id", leagueId).eq("user_id", user.id).maybeSingle();
   if (!membership) notFound();
 
-  const roster = await getLeagueRoster(supabase, league.id);
-  const draft = await getLeagueDraft(supabase, league.id);
+  const [roster, draft, standings] = await Promise.all([
+    getLeagueRoster(supabase, league.id),
+    getLeagueDraft(supabase, league.id),
+    getLeagueStandings(supabase, league.id),
+  ]);
   const [participants, mySlot] = draft
     ? await Promise.all([
         getDraftParticipants(supabase, draft.id, roster.members),
@@ -36,12 +40,20 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
       : draft.status.charAt(0).toUpperCase() + draft.status.slice(1);
   const draftIsPrimary = draft?.status === "live";
   const draftActionLabel = draft?.status === "complete" ? "View Draft Results" : "Enter Draft Room";
+  const myStanding = standings.rows.find((row) => row.memberId === membership.id);
 
   return (
     <main className="min-h-screen bg-slate-100">
       <header className="bg-blue-950 text-white"><div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 px-6 py-6 sm:flex-row sm:items-center"><div><p className="text-sm text-blue-200">{league.season} College Football Pool</p><h1 className="text-3xl font-bold">{league.name}</h1></div>{league.commissioner_id === user.id && <Link href="/commissioner" className="rounded-lg bg-white px-4 py-2 text-center font-bold text-blue-950 transition hover:bg-blue-100">Commissioner Admin</Link>}</div></header>
       <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-3">
         <section className="space-y-6 lg:col-span-2">
+          <section className="rounded-xl bg-gradient-to-r from-blue-950 to-purple-800 p-6 text-white shadow-xl" aria-labelledby="my-standing-heading">
+            <p id="my-standing-heading" className="text-sm font-bold uppercase tracking-widest text-blue-200">My Season</p>
+            <div className="mt-2 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+              <div><p className="text-5xl font-black">{myStanding?.totalPoints ?? 0} <span className="text-xl">Points</span></p><p className="mt-1 text-lg font-bold text-purple-100">{myStanding ? `#${myStanding.rank} Place` : "Standings pending"}</p></div>
+              <div className="flex flex-col gap-2 sm:flex-row"><Link href={`/league/${league.id}/score`} className="rounded-lg bg-white px-4 py-3 text-center font-bold text-blue-950 hover:bg-blue-100">View My Score</Link><Link href={`/league/${league.id}/standings`} className="rounded-lg border border-white/60 px-4 py-3 text-center font-bold hover:bg-white/10">League Standings</Link></div>
+            </div>
+          </section>
           <nav className="grid gap-3 sm:grid-cols-3" aria-label="League navigation">
             <Link href={`/league/${league.id}/standings`} className="rounded-xl bg-purple-600 px-4 py-3 text-center font-bold text-white shadow hover:bg-purple-700">Standings</Link>
             <Link href={`/league/${league.id}/score`} className="rounded-xl bg-green-700 px-4 py-3 text-center font-bold text-white shadow hover:bg-green-800">My Score</Link>

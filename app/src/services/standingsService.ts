@@ -34,9 +34,11 @@ export async function getLeagueStandings(
   leagueId: string,
   requestedWeek?: number,
 ): Promise<LeagueStandingsData> {
-  const roster = await getLeagueRoster(supabase, leagueId);
-  const draft = await getLeagueDraft(supabase, leagueId);
-  const events = await getLeagueScoringEvents(supabase, leagueId);
+  const [roster, draft, events] = await Promise.all([
+    getLeagueRoster(supabase, leagueId),
+    getLeagueDraft(supabase, leagueId),
+    getLeagueScoringEvents(supabase, leagueId),
+  ]);
   const availableWeeks = [...new Set(events.flatMap((event) => event.week === null ? [] : [event.week]))].sort((a, b) => a - b);
   const selectedWeek = requestedWeek && requestedWeek > 0 ? requestedWeek : (availableWeeks.at(-1) ?? 1);
   if (!draft) return { rows: roster.members.map((member, index) => ({ rank: index + 1, memberId: member.id, ownerName: member.profile?.display_name ?? "Owner", poolTeamName: member.team_name, totalPoints: 0, weeklyPoints: 0, draftedTeamCount: 0 })), events, availableWeeks, selectedWeek };
@@ -81,10 +83,13 @@ export async function getMemberScoreBreakdown(
 ): Promise<TeamScoreBreakdown[]> {
   const draft = await getLeagueDraft(supabase, leagueId);
   if (!draft) return [];
-  const teams = await getActiveTeams(supabase);
-  const { data: picks, error } = await supabase.from("draft_picks").select("*").eq("draft_id", draft.id).eq("league_member_id", memberId).order("overall_pick");
+  const [teams, picksResult] = await Promise.all([
+    getActiveTeams(supabase),
+    supabase.from("draft_picks").select("*").eq("draft_id", draft.id).eq("league_member_id", memberId).order("overall_pick"),
+  ]);
+  const { data: picks, error } = picksResult;
   if (error) throw error;
-  const events = await getLeagueScoringEvents(supabase, leagueId);
+  const events = picks.length ? await getLeagueScoringEvents(supabase, leagueId, { teamIds: picks.map((pick) => pick.team_id) }) : [];
   const teamMap = new Map(teams.map((team) => [team.id, team]));
   return picks.flatMap((pick) => {
     const team = teamMap.get(pick.team_id);
