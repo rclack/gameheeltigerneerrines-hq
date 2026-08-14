@@ -8,6 +8,8 @@ import { normalizeCfbdGame, parseCfbdGames, parseCfbdTeams } from "../../src/lib
 import { getGameScoringState } from "../../src/lib/cfbd/scoringState.ts";
 import { CfbdSyncError, redactSensitiveText, syncFailureSummary, syncRunFailureDetail } from "../../src/lib/cfbd/diagnostics.ts";
 import { chunkPostgrestFilterValues } from "../../src/services/gameService.ts";
+import { formatGameParticipant } from "../../src/services/gameService.ts";
+import { prepareCfbdSchedule } from "../../src/lib/cfbd/schedule.ts";
 
 const game = { id: 9001, season: 2026, week: 3, startDate: "2026-09-12T19:00:00Z", homeId: 1, homeTeam: "South Carolina", homePoints: null, awayId: 2, awayTeam: "UConn", awayPoints: null, completed: false, neutralSite: false, seasonType: "regular" };
 
@@ -122,4 +124,59 @@ test("unmapped games distinguish unsupported non-FBS opponents from FBS mapping 
   assert.equal(classifyUnmappedCfbdGame(normalized, fbsIds), "unresolved_fbs_mapping");
   assert.equal(classifyUnmappedCfbdGame({ ...normalized, away_external_team_id: "2698", away_external_name: "West Georgia" }, fbsIds), "unsupported_non_fbs");
   assert.equal(classifyUnmappedCfbdGame({ ...normalized, away_external_team_id: null }, fbsIds), "unresolved_fbs_mapping");
+});
+
+test("3B A-E/G/H: supports internal/external games in either orientation without draft catalog writes", () => {
+  const fbsHome = normalizeCfbdGame(game);
+  const externalAway = { ...fbsHome, away_external_team_id: "2698", away_external_name: "Furman" };
+  const externalHome = { ...externalAway, home_external_team_id: "2698", home_external_name: "Furman", away_external_team_id: "1", away_external_name: "South Carolina" };
+  const prepared = prepareCfbdSchedule([externalAway, externalHome], new Set(["1"]), new Map([["1", "internal-usc"]]));
+  assert.equal(prepared.games.length, 2);
+  assert.equal(prepared.externalOpponents.length, 1);
+  assert.deepEqual(prepared.externalOpponents[0], { provider: "cfbd", external_id: "2698", display_name: "Furman", classification: "fcs" });
+  assert.equal(prepared.games[0].home_team_id, "internal-usc");
+  assert.equal(prepared.games[0].away_external_opponent_external_id, "2698");
+  assert.equal(prepared.games[1].home_external_opponent_external_id, "2698");
+  assert.equal(prepared.games[1].away_team_id, "internal-usc");
+  assert.equal(prepared.unresolvedGames.length, 0);
+  const fbsOnly = prepareCfbdSchedule([fbsHome], new Set(["1", "2"]), new Map([["1", "internal-usc"], ["2", "internal-uconn"]]));
+  assert.equal("home_external_opponent_external_id" in fbsOnly.games[0], false);
+  assert.equal("away_external_opponent_external_id" in fbsOnly.games[0], false);
+});
+
+test("3B C/G: 761 FBS games plus 127 external games are all supported and idempotently identified", () => {
+  const inputs = Array.from({ length: 888 }, (_, index) => normalizeCfbdGame({ ...game, id: index + 1, awayId: index < 761 ? 2 : 10000 + index, awayTeam: index < 761 ? "UConn" : `FCS ${index}` }));
+  const prepared = prepareCfbdSchedule(inputs, new Set(["1", "2"]), new Map([["1", "usc"], ["2", "uconn"]]));
+  assert.equal(prepared.games.length, 888);
+  assert.equal(prepared.externalOpponents.length, 127);
+  assert.equal(new Set(prepared.externalOpponents.map((item) => `${item.provider}:${item.external_id}`)).size, 127);
+  assert.equal(prepared.unresolvedGames.length, 0);
+});
+
+test("3B I: provider-neutral display includes external classification", () => {
+  assert.equal(formatGameParticipant({ kind: "external", displayName: "Furman", classification: "fcs" }), "Furman (FCS)");
+  assert.equal(formatGameParticipant({ kind: "internal", displayName: "South Carolina", classification: "fbs" }), "South Carolina");
+});
+
+test("3B F/J-N: migration enforces participants and scores only internal teams", () => {
+  const migration = readFileSync(new URL("../../supabase/migrations/20260822000000_external_opponents.sql", import.meta.url), "utf8");
+  assert.match(migration, /cfb_games_home_participant_exactly_one/);
+  assert.match(migration, /cfb_games_away_participant_exactly_one/);
+  assert.match(migration, /cfb_games_provider_has_internal_participant/);
+  assert.match(migration, /select winner_id, unnest\(winner_codes\) where winner_id is not null/);
+  assert.match(migration, /select loser_id, unnest\(loser_codes\) where loser_id is not null/);
+  assert.match(migration, /winner_id is not null and loser_id is not null and winner_classification = 'G5'/);
+  assert.match(migration, /winner_id is not null and loser_id is not null and loser_rank is not null/);
+  assert.doesNotMatch(migration, /FBS_LOSS_TO_FCS/);
+  assert.doesNotMatch(migration, /insert into public\.teams/);
+  assert.match(migration, /unique \(provider, external_id\)/);
+});
+
+test("3B security repair makes provider tables browser-read-only", () => {
+  const migration = readFileSync(new URL("../../supabase/migrations/20260823000000_external_provider_privilege_repair.sql", import.meta.url), "utf8");
+  for (const table of ["external_opponents", "external_team_mappings", "external_sync_runs"]) {
+    assert.match(migration, new RegExp(`revoke insert, update, delete on table public\\.${table} from public, anon, authenticated`));
+    assert.match(migration, new RegExp(`grant select on table public\\.${table} to authenticated`));
+  }
+  assert.doesNotMatch(migration, /scoring/);
 });

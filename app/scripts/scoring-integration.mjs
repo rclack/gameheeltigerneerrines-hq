@@ -27,7 +27,7 @@ if (!config.url || !config.key || !serviceKey) {
 
 const admin = createClient(config.url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const anon = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
-const fixture = { leagueId: null, users: [] };
+const fixture = { leagueId: null, externalOpponentId: null, users: [] };
 const rules = new Map();
 const passed = [];
 
@@ -104,6 +104,17 @@ async function saveAndScore(client, input) {
 async function expectDenied(promise, label) {
   const { error } = await promise;
   assert(error, `${label}: mutation unexpectedly succeeded`);
+}
+
+async function expectExternalOpponentWriteDenied(client, operation, opponent, label) {
+  let result;
+  if (operation === "insert") result = await client.from("external_opponents").insert({ provider: "cfbd", external_id: `denied-${randomUUID()}`, display_name: "Denied", classification: "fcs" }).select("id");
+  else if (operation === "update") result = await client.from("external_opponents").update({ display_name: "Denied" }).eq("id", opponent.id).select("id");
+  else result = await client.from("external_opponents").delete().eq("id", opponent.id).select("id");
+  assert(result.error, `${label}: direct table request did not return a privilege error`);
+  const { data: stored, error: storedError } = await admin.from("external_opponents").select("display_name").eq("id", opponent.id).single();
+  if (storedError) throw storedError;
+  assert(stored.display_name === opponent.display_name, `${label}: stored opponent was mutated`);
 }
 
 async function activeOwnerTotals(ownerByTeam) {
@@ -190,6 +201,79 @@ async function main() {
   assertCodes(codesFor(independentGame.events, powerB.id), ["LOSS"], "G loser");
   pass("G", "Independent matchup generated no POWER/G5 upset rules");
 
+  const { data: externalOpponent, error: externalOpponentError } = await admin.from("external_opponents").insert({ provider: "cfbd", external_id: `qa-${randomUUID()}`, display_name: "Furman QA", classification: "fcs" }).select().single();
+  if (externalOpponentError) throw externalOpponentError;
+  fixture.externalOpponentId = externalOpponent.id;
+  async function scoreExternal(homeScore, awayScore, week) {
+    const { data: externalGame, error: externalGameError } = await admin.from("cfb_games").insert({ league_id: league.id, season: "2026", week, game_date: `2026-10-${String(week).padStart(2, "0")}`, home_team_id: powerA.id, away_external_opponent_id: externalOpponent.id, home_score: homeScore, away_score: awayScore, status: "final" }).select().single();
+    if (externalGameError) throw externalGameError;
+    const { error: externalScoreError } = await commissioner.client.rpc("process_cfb_game_scoring", { target_game_id: externalGame.id });
+    if (externalScoreError) throw externalScoreError;
+    return activeGameEvents(externalGame.id);
+  }
+  const fbsWinEvents = await scoreExternal(28, 7, 8);
+  assertCodes(codesFor(fbsWinEvents, powerA.id), ["WIN"], "3B FBS winner");
+  assert(fbsWinEvents.length === 1 && totalFor(fbsWinEvents, powerA.id) === 1, "3B FBS win external scoring mismatch");
+  const fbsWinEventId = fbsWinEvents[0].id;
+  const fbsWinGameId = fbsWinEvents[0].source_identifier;
+  const { error: fbsWinReprocessError } = await commissioner.client.rpc("process_cfb_game_scoring", { target_game_id: fbsWinGameId });
+  if (fbsWinReprocessError) throw fbsWinReprocessError;
+  const fbsWinReprocessed = await activeGameEvents(fbsWinGameId);
+  assert(fbsWinReprocessed.length === 1 && fbsWinReprocessed[0].id === fbsWinEventId, "3B FBS win reprocessing was not idempotent");
+  pass("3B-WIN", "FBS win over FCS produced one internal WIN +1 and no external event or bonus");
+  const fbsLossEvents = await scoreExternal(14, 21, 9);
+  assertCodes(codesFor(fbsLossEvents, powerA.id), ["LOSS"], "3B FBS loser");
+  assert(fbsLossEvents.length === 1 && totalFor(fbsLossEvents, powerA.id) === -1, "3B FBS loss external scoring mismatch");
+  const fbsLossEventId = fbsLossEvents[0].id;
+  const fbsLossGameId = fbsLossEvents[0].source_identifier;
+  const { error: fbsLossReprocessError } = await commissioner.client.rpc("process_cfb_game_scoring", { target_game_id: fbsLossGameId });
+  if (fbsLossReprocessError) throw fbsLossReprocessError;
+  const fbsLossReprocessed = await activeGameEvents(fbsLossGameId);
+  assert(fbsLossReprocessed.length === 1 && fbsLossReprocessed[0].id === fbsLossEventId, "3B FBS loss reprocessing was not idempotent");
+  pass("3B-LOSS", "FBS loss to FCS produced only one internal LOSS -1 with no special penalty");
+
+  const { error: correctedExternalError } = await admin.from("cfb_games").update({ home_score: 3, away_score: 24, scoring_fingerprint: null }).eq("id", fbsWinGameId);
+  if (correctedExternalError) throw correctedExternalError;
+  const { error: correctedExternalScoreError } = await commissioner.client.rpc("process_cfb_game_scoring", { target_game_id: fbsWinGameId });
+  if (correctedExternalScoreError) throw correctedExternalScoreError;
+  const { data: correctedExternalLedger, error: correctedExternalLedgerError } = await admin.from("scoring_events").select("*").eq("source_identifier", fbsWinGameId);
+  if (correctedExternalLedgerError) throw correctedExternalLedgerError;
+  const correctedExternalActive = correctedExternalLedger.filter((event) => !event.voided_at);
+  const correctedExternalVoided = correctedExternalLedger.filter((event) => event.voided_at);
+  assert(correctedExternalActive.length === 1, "3B corrected external result has duplicate active events");
+  assertCodes(codesFor(correctedExternalActive, powerA.id), ["LOSS"], "3B corrected external loser");
+  assert(totalFor(correctedExternalActive, powerA.id) === -1, "3B corrected external active total mismatch");
+  assert(correctedExternalVoided.length === 1 && correctedExternalVoided[0].id === fbsWinEventId, "3B original external WIN was not retained and voided");
+  assert(correctedExternalVoided[0].voided_by === commissioner.id && correctedExternalVoided[0].void_reason, "3B corrected external audit fields are incomplete");
+  pass("3B-CORRECTION", "external WIN remained voided; one active LOSS -1 replaced it with complete audit fields");
+
+  const { data: commissionerExternalGames, error: commissionerExternalGamesError } = await commissioner.client.from("cfb_games").select("id").eq("id", fbsWinGameId);
+  assert(!commissionerExternalGamesError && commissionerExternalGames.length === 1, "3B commissioner could not read external game");
+  const { data: ownerExternalGames, error: ownerExternalGamesError } = await owner.client.from("cfb_games").select("id").eq("id", fbsWinGameId);
+  const { data: ownerExternalOpponents, error: ownerExternalOpponentsError } = await owner.client.from("external_opponents").select("id,display_name,classification").eq("id", externalOpponent.id);
+  assert(!ownerExternalGamesError && ownerExternalGames.length === 1, "3B owner could not read league-authorized external game");
+  assert(!ownerExternalOpponentsError && ownerExternalOpponents.length === 1 && ownerExternalOpponents[0].classification === "fcs", "3B owner could not read referenced external opponent");
+  for (const operation of ["insert", "update", "delete"]) {
+    await expectExternalOpponentWriteDenied(owner.client, operation, externalOpponent, `3B owner external opponent ${operation}`);
+    await expectExternalOpponentWriteDenied(commissioner.client, operation, externalOpponent, `3B commissioner external opponent ${operation}`);
+    await expectExternalOpponentWriteDenied(anon, operation, externalOpponent, `3B anonymous external opponent ${operation}`);
+  }
+  const { data: anonExternalGames, error: anonExternalGamesError } = await anon.from("cfb_games").select("id").eq("id", fbsWinGameId);
+  const { data: anonExternalOpponents, error: anonExternalOpponentsError } = await anon.from("external_opponents").select("id").eq("id", externalOpponent.id);
+  assert(!anonExternalGamesError && anonExternalGames.length === 0, "3B anonymous external game was visible");
+  assert(!anonExternalOpponentsError && anonExternalOpponents.length === 0, "3B anonymous external opponent was visible");
+  await expectDenied(anon.rpc("process_cfb_game_scoring", { target_game_id: fbsWinGameId }), "3B anonymous external scoring");
+  const { data: providerRun, error: providerRunError } = await commissioner.client.rpc("begin_external_sync", { target_league_id: league.id, target_provider: "cfbd", target_sync_type: "schedule" });
+  if (providerRunError) throw providerRunError;
+  const rpcDisplayName = "Furman QA via authorized sync";
+  const { error: providerApplyError } = await commissioner.client.rpc("apply_external_game_sync", { target_sync_run_id: providerRun.id, target_games: [], target_external_opponents: [{ provider: "cfbd", external_id: externalOpponent.external_id, display_name: rpcDisplayName, classification: "fcs" }], target_mapping_summary: { unmapped_games: [] } });
+  if (providerApplyError) throw providerApplyError;
+  const { data: rpcUpdatedOpponent, error: rpcUpdatedOpponentError } = await admin.from("external_opponents").select("display_name").eq("id", externalOpponent.id).single();
+  if (rpcUpdatedOpponentError) throw rpcUpdatedOpponentError;
+  assert(rpcUpdatedOpponent.display_name === rpcDisplayName, "3B authorized provider sync could not update external opponent");
+  externalOpponent.display_name = rpcDisplayName;
+  pass("3B-RLS", "commissioner and owner reads succeeded; all browser table writes and anonymous reads/scoring were denied; authorized sync RPC retained write access");
+
   const beforeIds = (await activeGameEvents(normal.game.id)).map((event) => event.id).sort();
   const { error: secondScoreError } = await commissioner.client.rpc("process_cfb_game_scoring", { target_game_id: normal.game.id });
   if (secondScoreError) throw secondScoreError;
@@ -263,6 +347,7 @@ try {
   process.exitCode = 1;
 } finally {
   if (fixture.leagueId) await admin.from("leagues").delete().eq("id", fixture.leagueId);
+  if (fixture.externalOpponentId) await admin.from("external_opponents").delete().eq("id", fixture.externalOpponentId);
   for (const userId of fixture.users.reverse()) await admin.auth.admin.deleteUser(userId);
   console.log("CLEANUP: disposable league and temporary auth users removed.");
 }

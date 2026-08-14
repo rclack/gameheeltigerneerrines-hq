@@ -3,8 +3,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { CfbdError, fetchCfbdFbsTeams, fetchCfbdGames, testCfbdConnection } from "@/lib/cfbd/client";
-import { buildTeamMappingAudit, classifyUnmappedCfbdGame } from "@/lib/cfbd/mapping";
+import { buildTeamMappingAudit } from "@/lib/cfbd/mapping";
 import { normalizeCfbdGame } from "@/lib/cfbd/normalization";
+import { prepareCfbdSchedule } from "@/lib/cfbd/schedule";
 import { CfbdSyncError, databaseSyncError, syncFailureSummary, type CfbdSyncStage, type SyncProgress } from "@/lib/cfbd/diagnostics";
 import type { Database, ExternalSyncRun, Json, Team } from "@/types/database";
 
@@ -83,42 +84,24 @@ export async function syncCfbdSchedule(supabase: SupabaseClient<Database>, leagu
     }
     const allMappings = [...persistedResult.data, ...audit.created];
     const byId = new Map(allMappings.map((mapping) => [mapping.external_team_id, mapping.team_id]));
-    const byName = new Map(allMappings.map((mapping) => [mapping.external_name.toLowerCase(), mapping.team_id]));
-    const games: Array<Record<string, string | number | boolean | null>> = [];
-    const unmappedGames: Array<{ external_id: string; home: string; away: string }> = [];
-    const unsupportedNonFbsGames: Array<{ external_id: string; fbs_team: string; non_fbs_opponent: string }> = [];
-    const unresolvedFbsMappingGames: Array<{ external_id: string; home: string; away: string }> = [];
     const fbsExternalIds = new Set(externalTeams.map((team) => String(team.id)));
-    for (const raw of externalGames) {
-      const game = normalizeCfbdGame(raw);
-      const homeTeamId = (game.home_external_team_id && byId.get(game.home_external_team_id)) ?? byName.get(game.home_external_name.toLowerCase());
-      const awayTeamId = (game.away_external_team_id && byId.get(game.away_external_team_id)) ?? byName.get(game.away_external_name.toLowerCase());
-      if (!homeTeamId || !awayTeamId) {
-        const item = { external_id: game.external_id, home: game.home_external_name, away: game.away_external_name };
-        unmappedGames.push(item);
-        if (classifyUnmappedCfbdGame(game, fbsExternalIds) === "unsupported_non_fbs") {
-          const homeIsFbs = game.home_external_team_id !== null && fbsExternalIds.has(game.home_external_team_id);
-          unsupportedNonFbsGames.push({ external_id: game.external_id, fbs_team: homeIsFbs ? game.home_external_name : game.away_external_name, non_fbs_opponent: homeIsFbs ? game.away_external_name : game.home_external_name });
-        } else unresolvedFbsMappingGames.push(item);
-        continue;
-      }
-      games.push({ ...game, home_team_id: homeTeamId, away_team_id: awayTeamId });
-    }
-    progress.gamesMapped = games.length;
-    progress.gamesUnmapped = unmappedGames.length;
+    const prepared = prepareCfbdSchedule(externalGames.map(normalizeCfbdGame), fbsExternalIds, byId);
+    progress.gamesMapped = prepared.games.length;
+    progress.gamesUnmapped = prepared.unresolvedGames.length;
     const summary = {
       mappings_created: audit.created.length,
       unmapped_internal_count: audit.unmappedInternal.length,
       unmatched_cfbd_count: audit.unmatchedExternal.length,
       ambiguous_count: audit.ambiguous.length,
       ambiguous: audit.ambiguous,
-      unmapped_games: unmappedGames,
-      unsupported_non_fbs_game_count: unsupportedNonFbsGames.length,
-      unsupported_non_fbs_games: unsupportedNonFbsGames,
-      unresolved_fbs_mapping_game_count: unresolvedFbsMappingGames.length,
-      unresolved_fbs_mapping_games: unresolvedFbsMappingGames,
+      unmapped_games: prepared.unresolvedGames,
+      external_opponent_count: prepared.externalOpponents.length,
+      unsupported_non_fbs_game_count: 0,
+      unsupported_non_fbs_games: [],
+      unresolved_fbs_mapping_game_count: prepared.unresolvedGames.length,
+      unresolved_fbs_mapping_games: prepared.unresolvedGames,
     };
-    const { data, error } = await supabase.rpc("apply_external_game_sync", { target_sync_run_id: run.id, target_games: games as unknown as Json, target_mapping_summary: summary as unknown as Json });
+    const { data, error } = await supabase.rpc("apply_external_game_sync", { target_sync_run_id: run.id, target_games: prepared.games as unknown as Json, target_external_opponents: prepared.externalOpponents as unknown as Json, target_mapping_summary: summary as unknown as Json });
     if (error) throw databaseSyncError("importing_games", error);
     return data;
   } catch (error) {

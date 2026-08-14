@@ -175,9 +175,15 @@ export type Database = {
         Relationships: [];
       };
       cfb_games: {
-        Row: { id: string; league_id: string; external_id: string | null; external_provider: string | null; data_source: string; provider_payload_hash: string | null; provider_synced_at: string | null; manual_override: boolean; season: string; week: number; game_date: string; home_team_id: string; away_team_id: string; home_score: number | null; away_score: number | null; status: string; neutral_site: boolean; postseason: boolean; scoring_fingerprint: string | null; scored_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; league_id: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season: string; week: number; game_date: string; home_team_id: string; away_team_id: string; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
-        Update: { id?: string; league_id?: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season?: string; week?: number; game_date?: string; home_team_id?: string; away_team_id?: string; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; league_id: string; external_id: string | null; external_provider: string | null; data_source: string; provider_payload_hash: string | null; provider_synced_at: string | null; manual_override: boolean; season: string; week: number; game_date: string; home_team_id: string | null; away_team_id: string | null; home_external_opponent_id: string | null; away_external_opponent_id: string | null; home_score: number | null; away_score: number | null; status: string; neutral_site: boolean; postseason: boolean; scoring_fingerprint: string | null; scored_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season: string; week: number; game_date: string; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; league_id?: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season?: string; week?: number; game_date?: string; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      external_opponents: {
+        Row: { id: string; provider: string; external_id: string; display_name: string; classification: "fcs" | "other"; created_at: string; updated_at: string };
+        Insert: { id?: string; provider: string; external_id: string; display_name: string; classification: "fcs" | "other"; created_at?: string; updated_at?: string };
+        Update: { id?: string; provider?: string; external_id?: string; display_name?: string; classification?: "fcs" | "other"; created_at?: string; updated_at?: string };
         Relationships: [];
       };
       external_team_mappings: {
@@ -244,7 +250,7 @@ export type Database = {
       begin_external_sync: { Args: { target_league_id: string; target_provider: string; target_sync_type: string }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
       fail_external_sync: { Args: { target_sync_run_id: string; target_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
       save_external_team_mappings: { Args: { target_league_id: string; target_provider: string; target_mappings: Json }; Returns: number };
-      apply_external_game_sync: { Args: { target_sync_run_id: string; target_games: Json; target_mapping_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
+      apply_external_game_sync: { Args: { target_sync_run_id: string; target_games: Json; target_external_opponents: Json; target_mapping_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";
@@ -271,4 +277,5 @@ export type CfbGame = Database["public"]["Tables"]["cfb_games"]["Row"];
 export type TeamRankingSnapshot = Database["public"]["Tables"]["team_ranking_snapshots"]["Row"];
 export type ScoringEvent = Database["public"]["Tables"]["scoring_events"]["Row"];
 export type ExternalTeamMapping = Database["public"]["Tables"]["external_team_mappings"]["Row"];
+export type ExternalOpponent = Database["public"]["Tables"]["external_opponents"]["Row"];
 export type ExternalSyncRun = Database["public"]["Tables"]["external_sync_runs"]["Row"];
