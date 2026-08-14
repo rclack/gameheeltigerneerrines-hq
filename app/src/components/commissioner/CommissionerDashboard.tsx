@@ -30,9 +30,12 @@ export default function CommissionerDashboard({ league, roster, draft = null, pa
             🏈 Commissioner Portal
           </h1>
 
-          <div className="text-right">
-            <p className="font-semibold">GameHeelTigerNeerRines HQ</p>
-            <p className="text-sm text-slate-300">{league.season} Season</p>
+          <div className="flex flex-col items-end gap-2 text-right sm:flex-row sm:items-center">
+            <Link href={`/league/${league.id}`} className="rounded-lg bg-white px-4 py-2 font-bold text-blue-950 transition hover:bg-blue-100">View My League</Link>
+            <div>
+              <p className="font-semibold">GameHeelTigerNeerRines HQ</p>
+              <p className="text-sm text-slate-300">{league.season} Season</p>
+            </div>
           </div>
         </div>
       </header>
@@ -108,18 +111,15 @@ export default function CommissionerDashboard({ league, roster, draft = null, pa
 
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">📊 Results</h3>
-
-            <Button variant="info">
-              Standings
-            </Button>
+            <div className="space-y-2">
+              <Link href={`/league/${league.id}/standings`} className="block rounded-lg bg-purple-600 px-4 py-2 text-center font-semibold text-white transition hover:bg-purple-700">Standings</Link>
+              <Link href={`/league/${league.id}/score`} className="block rounded-lg bg-green-700 px-4 py-2 text-center font-semibold text-white transition hover:bg-green-800">My Score</Link>
+            </div>
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">⚙ Administration</h3>
-
-            <Button variant="danger">
-              Scoring Rules
-            </Button>
+            <Link href="/commissioner/scoring" className="block rounded-lg bg-red-600 px-4 py-2 text-center font-semibold text-white transition hover:bg-red-700">Scoring</Link>
           </div>
 
         </div>

@@ -38,3 +38,11 @@ After the draft migration, apply
 storage, secure queue mutation functions, automatic cleanup when a team is
 drafted, and Realtime publication for queue changes. No additional seed is
 required.
+
+## Season scoring and standings
+
+Apply `20260819000000_season_scoring.sql` after the draft reset migration. It
+creates the official scoring-rule catalog, conference classifications, internal
+game and ranking models, the auditable scoring-event ledger, and commissioner-only
+scoring RPCs. The migration seeds the official rules and 2026 conference tiers;
+`seed.sql` does not need to be rerun when adding scoring to an existing project.

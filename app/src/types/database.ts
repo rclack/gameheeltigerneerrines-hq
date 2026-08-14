@@ -162,6 +162,36 @@ export type Database = {
         Update: { id?: string; draft_id?: string; league_member_id?: string; team_id?: string; queue_position?: number; created_at?: string; updated_at?: string };
         Relationships: [];
       };
+      scoring_rules: {
+        Row: { id: string; league_id: string | null; code: string; display_name: string; description: string; category: string; points: number; active: boolean; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id?: string | null; code: string; display_name: string; description: string; category: string; points: number; active?: boolean; created_at?: string; updated_at?: string };
+        Update: { id?: string; league_id?: string | null; code?: string; display_name?: string; description?: string; category?: string; points?: number; active?: boolean; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      conference_classifications: {
+        Row: { id: string; season: string; conference: string; classification: string; created_at: string; updated_at: string };
+        Insert: { id?: string; season: string; conference: string; classification: string; created_at?: string; updated_at?: string };
+        Update: { id?: string; season?: string; conference?: string; classification?: string; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      cfb_games: {
+        Row: { id: string; league_id: string; external_id: string | null; season: string; week: number; game_date: string; home_team_id: string; away_team_id: string; home_score: number | null; away_score: number | null; status: string; neutral_site: boolean; postseason: boolean; scoring_fingerprint: string | null; scored_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id: string; external_id?: string | null; season: string; week: number; game_date: string; home_team_id: string; away_team_id: string; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; league_id?: string; external_id?: string | null; season?: string; week?: number; game_date?: string; home_team_id?: string; away_team_id?: string; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      team_ranking_snapshots: {
+        Row: { id: string; league_id: string; game_id: string | null; team_id: string; season: string; week: number; ranking_source: string; rank: number; captured_at: string; created_at: string };
+        Insert: { id?: string; league_id: string; game_id?: string | null; team_id: string; season: string; week: number; ranking_source: string; rank: number; captured_at?: string; created_at?: string };
+        Update: { id?: string; league_id?: string; game_id?: string | null; team_id?: string; season?: string; week?: number; ranking_source?: string; rank?: number; captured_at?: string; created_at?: string };
+        Relationships: [];
+      };
+      scoring_events: {
+        Row: { id: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week: number | null; points: number; event_date: string; source_type: string; source_identifier: string | null; origin: string; idempotency_key: string; notes: string | null; metadata: Json; created_by: string | null; created_at: string; voided_at: string | null; voided_by: string | null; void_reason: string | null };
+        Insert: { id?: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week?: number | null; points: number; event_date: string; source_type: string; source_identifier?: string | null; origin: string; idempotency_key: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null };
+        Update: { id?: string; league_id?: string; team_id?: string; scoring_rule_id?: string; season?: string; week?: number | null; points?: number; event_date?: string; source_type?: string; source_identifier?: string | null; origin?: string; idempotency_key?: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -186,6 +216,19 @@ export type Database = {
       add_team_to_my_draft_queue: { Args: { target_draft_id: string; target_team_id: string }; Returns: Database["public"]["Tables"]["draft_queue_items"]["Row"] };
       remove_team_from_my_draft_queue: { Args: { target_queue_item_id: string }; Returns: boolean };
       move_team_in_my_draft_queue: { Args: { target_queue_item_id: string; move_direction: number }; Returns: boolean };
+      save_cfb_game: {
+        Args: { target_game_id: string | null; target_league_id: string; target_season: string; target_week: number; target_game_date: string; target_home_team_id: string; target_away_team_id: string; target_home_score: number | null; target_away_score: number | null; target_status: string; target_neutral_site: boolean; target_postseason: boolean; target_ranking_source: string | null; target_home_rank: number | null; target_away_rank: number | null };
+        Returns: Database["public"]["Tables"]["cfb_games"]["Row"];
+      };
+      process_cfb_game_scoring: { Args: { target_game_id: string }; Returns: number };
+      add_manual_scoring_event: {
+        Args: { target_league_id: string; target_team_id: string; target_rule_id: string; target_week: number | null; target_event_date: string | null; target_notes: string | null };
+        Returns: Database["public"]["Tables"]["scoring_events"]["Row"];
+      };
+      void_manual_scoring_event: {
+        Args: { target_event_id: string; target_reason: string };
+        Returns: Database["public"]["Tables"]["scoring_events"]["Row"];
+      };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";
@@ -206,3 +249,8 @@ export type Draft = Database["public"]["Tables"]["drafts"]["Row"];
 export type DraftSlot = Database["public"]["Tables"]["draft_slots"]["Row"];
 export type DraftPick = Database["public"]["Tables"]["draft_picks"]["Row"];
 export type DraftQueueItem = Database["public"]["Tables"]["draft_queue_items"]["Row"];
+export type ScoringRule = Database["public"]["Tables"]["scoring_rules"]["Row"];
+export type ConferenceClassification = Database["public"]["Tables"]["conference_classifications"]["Row"];
+export type CfbGame = Database["public"]["Tables"]["cfb_games"]["Row"];
+export type TeamRankingSnapshot = Database["public"]["Tables"]["team_ranking_snapshots"]["Row"];
+export type ScoringEvent = Database["public"]["Tables"]["scoring_events"]["Row"];

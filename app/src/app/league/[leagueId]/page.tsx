@@ -39,9 +39,14 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
 
   return (
     <main className="min-h-screen bg-slate-100">
-      <header className="bg-blue-950 text-white"><div className="mx-auto max-w-6xl px-6 py-6"><p className="text-sm text-blue-200">{league.season} College Football Pool</p><h1 className="text-3xl font-bold">{league.name}</h1></div></header>
+      <header className="bg-blue-950 text-white"><div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 px-6 py-6 sm:flex-row sm:items-center"><div><p className="text-sm text-blue-200">{league.season} College Football Pool</p><h1 className="text-3xl font-bold">{league.name}</h1></div>{league.commissioner_id === user.id && <Link href="/commissioner" className="rounded-lg bg-white px-4 py-2 text-center font-bold text-blue-950 transition hover:bg-blue-100">Commissioner Admin</Link>}</div></header>
       <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-3">
         <section className="space-y-6 lg:col-span-2">
+          <nav className="grid gap-3 sm:grid-cols-3" aria-label="League navigation">
+            <Link href={`/league/${league.id}/standings`} className="rounded-xl bg-purple-600 px-4 py-3 text-center font-bold text-white shadow hover:bg-purple-700">Standings</Link>
+            <Link href={`/league/${league.id}/score`} className="rounded-xl bg-green-700 px-4 py-3 text-center font-bold text-white shadow hover:bg-green-800">My Score</Link>
+            {draft && draft.status !== "not_started" ? <Link href={`/draft/${draft.id}`} className="rounded-xl bg-orange-500 px-4 py-3 text-center font-bold text-white shadow hover:bg-orange-600">Draft Results</Link> : <span className="rounded-xl bg-slate-300 px-4 py-3 text-center font-bold text-slate-600">Draft Results</span>}
+          </nav>
           <div className={`${draftIsPrimary ? "border-2 border-orange-500 shadow-xl shadow-orange-100" : "shadow"} rounded-xl bg-white p-6`}>
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
               <h2 className="text-2xl font-bold">Draft</h2>
@@ -73,7 +78,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
         <aside className="space-y-6">
           <div className="rounded-xl bg-white p-6 shadow"><TeamNameForm leagueId={league.id} initialName={membership.team_name} /></div>
           <div className="rounded-xl bg-white p-6 shadow"><h2 className="text-xl font-bold">League Roster</h2><div className="mt-4 space-y-3">{roster.members.map((member) => <div key={member.id}><p className="font-semibold">{member.profile?.display_name ?? "Owner"}</p><p className="text-sm text-slate-500">{member.team_name ?? "Team name not set"}</p></div>)}</div></div>
-          {membership.role === "commissioner" && <Link href="/commissioner" className="block text-center font-semibold text-blue-700">Commissioner Portal</Link>}
+          {league.commissioner_id === user.id && <Link href="/commissioner" className="block rounded-lg border-2 border-blue-700 px-4 py-3 text-center font-bold text-blue-800 hover:bg-blue-50">Commissioner Admin</Link>}
         </aside>
       </div>
     </main>
