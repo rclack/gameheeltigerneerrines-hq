@@ -9,6 +9,8 @@ interface ReviewStepProps {
 
   onBack: () => void;
   onCreateLeague: () => void;
+  isSubmitting: boolean;
+  error: string | null;
 }
 
 export default function ReviewStep({
@@ -19,6 +21,8 @@ export default function ReviewStep({
 
     onBack,
     onCreateLeague,
+    isSubmitting,
+    error,
 }: ReviewStepProps) {
   return (
     <div className="mx-auto mt-16 max-w-2xl">
@@ -56,10 +60,17 @@ export default function ReviewStep({
   <Button
     variant="success"
     onClick={onCreateLeague}
+    disabled={isSubmitting}
   >
-    Create League 🏈
+    {isSubmitting ? "Creating League…" : "Create League 🏈"}
   </Button>
 </div>
+
+          {error && (
+            <p role="alert" className="rounded-lg border border-red-500/50 bg-red-950/60 p-3 text-sm text-red-200">
+              {error}
+            </p>
+          )}
 
         </div>
       </Card>

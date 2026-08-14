@@ -27,11 +27,11 @@ export default function WelcomeStep({
 
           <p className="mx-auto max-w-lg text-lg text-slate-300">
             Your command center for the most competitive
-            college football pool you'll ever play.
+            college football pool you&apos;ll ever play.
           </p>
 
           <p className="text-slate-400">
-            We'll have your league ready for kickoff in
+            We&apos;ll have your league ready for kickoff in
             about two minutes.
           </p>
 

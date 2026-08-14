@@ -1,6 +1,25 @@
 import Button from "@/components/ui/Button";
+import type { League } from "@/types/database";
+import type { LeagueRoster } from "@/services/membershipService";
+import OwnerManagement from "./OwnerManagement";
+import DraftSetup from "./DraftSetup";
+import type { Draft } from "@/types/database";
+import type { DraftParticipant } from "@/services/draftService";
+import Link from "next/link";
 
-export default function CommissionerDashboard() {
+interface CommissionerDashboardProps {
+  league: League;
+  roster?: LeagueRoster;
+  draft?: Draft | null;
+  participants?: DraftParticipant[];
+  pickCount?: number;
+}
+
+export default function CommissionerDashboard({ league, roster, draft = null, participants = [], pickCount = 0 }: CommissionerDashboardProps) {
+  const activeInvitations = roster?.invitations.filter(
+    (invitation) => invitation.status === "pending" && new Date(invitation.expires_at) > new Date(),
+  ) ?? [];
+  const memberCount = roster?.members.length ?? 1;
   return (
     
     <main className="min-h-screen bg-slate-100">
@@ -13,7 +32,7 @@ export default function CommissionerDashboard() {
 
           <div className="text-right">
             <p className="font-semibold">GameHeelTigerNeerRines HQ</p>
-            <p className="text-sm text-slate-300">2026 Season</p>
+            <p className="text-sm text-slate-300">{league.season} Season</p>
           </div>
         </div>
       </header>
@@ -30,22 +49,24 @@ export default function CommissionerDashboard() {
 
             <div className="rounded-lg bg-slate-100 p-4">
               <p className="text-sm text-slate-500">League</p>
-              <p className="text-xl font-bold">Test League</p>
+              <p className="text-xl font-bold">{league.name}</p>
             </div>
 
             <div className="rounded-lg bg-slate-100 p-4">
               <p className="text-sm text-slate-500">Status</p>
-              <p className="text-xl font-bold">Preseason</p>
+              <p className="text-xl font-bold capitalize">{draft?.status.replace("_", " ") ?? "Preseason"}</p>
             </div>
 
             <div className="rounded-lg bg-slate-100 p-4">
               <p className="text-sm text-slate-500">Owners</p>
-              <p className="text-xl font-bold">0 / 12</p>
+              <p className="text-xl font-bold">{memberCount} / {league.owner_count}</p>
             </div>
 
             <div className="rounded-lg bg-slate-100 p-4">
               <p className="text-sm text-slate-500">Teams Drafted</p>
-              <p className="text-xl font-bold">0 / 72</p>
+              <p className="text-xl font-bold">
+                {pickCount} / {league.owner_count * league.teams_per_owner}
+              </p>
             </div>
 
           </div>
@@ -78,9 +99,11 @@ export default function CommissionerDashboard() {
           <div className="rounded-xl bg-white p-6 shadow">
             <h3 className="mb-3 text-xl font-bold">🎯 Draft</h3>
 
-            <Button variant="sports">
-              Draft Room
-            </Button>
+            {draft && draft.status !== "not_started" ? (
+              <Link href={`/draft/${draft.id}`} className="block rounded-lg bg-orange-500 px-4 py-2 text-center font-semibold text-white transition hover:bg-orange-600">Draft Room</Link>
+            ) : (
+              <Button variant="sports" disabled>Draft Room</Button>
+            )}
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow">
@@ -100,6 +123,33 @@ export default function CommissionerDashboard() {
           </div>
 
         </div>
+
+        {roster && (
+          <OwnerManagement
+            leagueId={league.id}
+            ownerCount={league.owner_count}
+            members={roster.members}
+            invitations={roster.invitations}
+          />
+        )}
+
+        {roster && (
+          <DraftSetup
+            leagueId={league.id}
+            ownerCount={league.owner_count}
+            teamsPerOwner={league.teams_per_owner}
+            members={roster.members}
+            invitations={roster.invitations}
+            draft={draft}
+            participants={participants}
+          />
+        )}
+
+        {roster && activeInvitations.length > 0 && (
+          <p className="mt-4 text-sm text-slate-500">
+            {activeInvitations.length} roster spot{activeInvitations.length === 1 ? " is" : "s are"} reserved by pending invitations.
+          </p>
+        )}
 
       </div>
     </main>

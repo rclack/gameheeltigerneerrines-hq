@@ -56,6 +56,7 @@ export default function LeagueBasicsStep({
   <Button
     variant="sports"
     onClick={onNext}
+    disabled={leagueName.trim().length < 2}
   >
     Continue →
   </Button>

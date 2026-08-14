@@ -1,8 +1,10 @@
-import { supabase } from "@/lib/supabase";
-import { League } from "@/types/league";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database, LeagueInsert } from "@/types/database";
 
 export async function createLeague(
-  league: League
+  supabase: SupabaseClient<Database>,
+  league: LeagueInsert,
 ) {
   const { data, error } = await supabase
     .from("leagues")
@@ -10,37 +12,21 @@ export async function createLeague(
     .select()
     .single();
 
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   return data;
 }
-
-export async function getLeagues() {
+export async function getOwnedLeague(
+  supabase: SupabaseClient<Database>,
+  commissionerId: string,
+) {
   const { data, error } = await supabase
     .from("leagues")
     .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw error;
-  }
-
-  return data ?? [];
-}
-
-export async function getLatestLeague() {
-  const { data, error } = await supabase
-    .from("leagues")
-    .select("*")
+    .eq("commissioner_id", commissionerId)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   return data;
 }

@@ -1,0 +1,154 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database, Draft, DraftPick, DraftQueueItem, DraftSlot, League, LeagueMember, Profile, Team } from "@/types/database";
+
+export type DraftParticipant = DraftSlot & { member: LeagueMember; profile: Profile | null };
+export type DraftSelection = DraftPick & { team: Team; participant: DraftParticipant | null };
+export type DraftQueueSelection = DraftQueueItem & { team: Team };
+
+export interface DraftRoomData {
+  draft: Draft;
+  league: League;
+  participants: DraftParticipant[];
+  picks: DraftSelection[];
+  teams: Team[];
+  currentUserId: string;
+  queue: DraftQueueSelection[];
+}
+
+export async function getLeagueDraft(supabase: SupabaseClient<Database>, leagueId: string) {
+  const { data, error } = await supabase.from("drafts").select("*").eq("league_id", leagueId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function getMemberDraftSlot(
+  supabase: SupabaseClient<Database>,
+  draftId: string,
+  leagueMemberId: string,
+) {
+  const { data, error } = await supabase
+    .from("draft_slots")
+    .select("*")
+    .eq("draft_id", draftId)
+    .eq("league_member_id", leagueMemberId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function getDraftPickCount(supabase: SupabaseClient<Database>, draftId: string) {
+  const { count, error } = await supabase.from("draft_picks").select("id", { count: "exact", head: true }).eq("draft_id", draftId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function getDraftParticipants(
+  supabase: SupabaseClient<Database>,
+  draftId: string,
+  members: Array<LeagueMember & { profile: Profile | null }>,
+) {
+  const { data, error } = await supabase
+    .from("draft_slots")
+    .select("*")
+    .eq("draft_id", draftId)
+    .order("draft_position");
+  if (error) throw error;
+  const byId = new Map(members.map((member) => [member.id, member]));
+  return data.flatMap((slot) => {
+    const member = byId.get(slot.league_member_id);
+    return member ? [{ ...slot, member, profile: member.profile }] : [];
+  });
+}
+
+export async function getDraftPicks(
+  supabase: SupabaseClient<Database>,
+  draftId: string,
+  participants: DraftParticipant[],
+  teams: Team[],
+) {
+  const { data, error } = await supabase
+    .from("draft_picks")
+    .select("*")
+    .eq("draft_id", draftId)
+    .order("overall_pick");
+  if (error) throw error;
+  const teamById = new Map(teams.map((team) => [team.id, team]));
+  const participantByMember = new Map(participants.map((participant) => [participant.league_member_id, participant]));
+  return data.flatMap((pick) => {
+    const team = teamById.get(pick.team_id);
+    return team ? [{ ...pick, team, participant: participantByMember.get(pick.league_member_id) ?? null }] : [];
+  });
+}
+
+export async function getMyDraftQueue(
+  supabase: SupabaseClient<Database>,
+  draftId: string,
+  teams: Team[],
+) {
+  const { data, error } = await supabase
+    .from("draft_queue_items")
+    .select("*")
+    .eq("draft_id", draftId)
+    .order("queue_position");
+  if (error) throw error;
+  const teamById = new Map(teams.map((team) => [team.id, team]));
+  return data.flatMap((item) => {
+    const team = teamById.get(item.team_id);
+    return team ? [{ ...item, team }] : [];
+  });
+}
+
+export async function addDraftQueueTeam(supabase: SupabaseClient<Database>, draftId: string, teamId: string) {
+  const { data, error } = await supabase.rpc("add_team_to_my_draft_queue", { target_draft_id: draftId, target_team_id: teamId });
+  if (error) throw error;
+  return data;
+}
+
+export async function removeDraftQueueTeam(supabase: SupabaseClient<Database>, queueItemId: string) {
+  const { data, error } = await supabase.rpc("remove_team_from_my_draft_queue", { target_queue_item_id: queueItemId });
+  if (error) throw error;
+  return data;
+}
+
+export async function moveDraftQueueTeam(supabase: SupabaseClient<Database>, queueItemId: string, direction: -1 | 1) {
+  const { data, error } = await supabase.rpc("move_team_in_my_draft_queue", { target_queue_item_id: queueItemId, move_direction: direction });
+  if (error) throw error;
+  return data;
+}
+
+export async function randomizeDraft(supabase: SupabaseClient<Database>, leagueId: string) {
+  const { data, error } = await supabase.rpc("randomize_draft_order", { target_league_id: leagueId });
+  if (error) throw error;
+  return data;
+}
+
+export async function startLeagueDraft(supabase: SupabaseClient<Database>, draftId: string) {
+  const { data, error } = await supabase.rpc("start_draft", { target_draft_id: draftId });
+  if (error) throw error;
+  return data;
+}
+
+export async function resetLeagueDraft(supabase: SupabaseClient<Database>, draftId: string) {
+  const { data, error } = await supabase.rpc("reset_draft", { target_draft_id: draftId });
+  if (error) throw error;
+  return data;
+}
+
+export async function pauseLeagueDraft(supabase: SupabaseClient<Database>, draftId: string, paused: boolean) {
+  const { data, error } = await supabase.rpc("set_draft_paused", { target_draft_id: draftId, should_pause: paused });
+  if (error) throw error;
+  return data;
+}
+
+export async function makeDraftPick(supabase: SupabaseClient<Database>, draftId: string, teamId: string) {
+  const { data, error } = await supabase.rpc("submit_draft_pick", { target_draft_id: draftId, target_team_id: teamId });
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTeamName(supabase: SupabaseClient<Database>, leagueId: string, teamName: string) {
+  const { data, error } = await supabase.rpc("update_my_team_name", { target_league_id: leagueId, new_team_name: teamName });
+  if (error) throw error;
+  return data;
+}
