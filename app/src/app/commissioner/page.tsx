@@ -1,5 +1,6 @@
 import CommissionerDashboard from "@/components/commissioner/CommissionerDashboard";
 import LeagueSetupWizard from "@/components/commissioner/LeagueSetupWizard";
+import { getSiteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnedLeague } from "@/services/leagueService";
 import { getLeagueRoster } from "@/services/membershipService";
@@ -21,5 +22,5 @@ export default async function CommissionerPage() {
   const participants = draft ? await getDraftParticipants(supabase, draft.id, roster.members) : [];
   const pickCount = draft ? await getDraftPickCount(supabase, draft.id) : 0;
 
-  return <CommissionerDashboard league={league} roster={roster} draft={draft} participants={participants} pickCount={pickCount} />;
+  return <CommissionerDashboard league={league} roster={roster} draft={draft} participants={participants} pickCount={pickCount} siteOrigin={getSiteOrigin()} />;
 }

@@ -6,6 +6,7 @@ import { FormEvent, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { safeAuthReturnPath } from "@/lib/auth/redirects";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup";
@@ -13,6 +14,7 @@ type AuthMode = "login" | "signup";
 interface AuthFormProps {
   mode: AuthMode;
   nextPath?: string;
+  siteOrigin: string;
 }
 
 function friendlyAuthError(message: string) {
@@ -24,7 +26,7 @@ function friendlyAuthError(message: string) {
   return "Authentication failed. Please try again.";
 }
 
-export default function AuthForm({ mode, nextPath = "/commissioner" }: AuthFormProps) {
+export default function AuthForm({ mode, nextPath = "/commissioner", siteOrigin }: AuthFormProps) {
   const router = useRouter();
   const isSignup = mode === "signup";
   const [displayName, setDisplayName] = useState("");
@@ -34,9 +36,7 @@ export default function AuthForm({ mode, nextPath = "/commissioner" }: AuthFormP
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const safeNextPath = nextPath.startsWith("/") && !nextPath.startsWith("//")
-    ? nextPath
-    : "/commissioner";
+  const safeNextPath = safeAuthReturnPath(nextPath);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,7 +74,7 @@ export default function AuthForm({ mode, nextPath = "/commissioner" }: AuthFormP
           password,
           options: {
             data: { display_name: cleanName },
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNextPath)}`,
+            emailRedirectTo: `${siteOrigin}/auth/callback?next=${encodeURIComponent(safeNextPath)}`,
           },
         });
         if (signUpError) throw signUpError;

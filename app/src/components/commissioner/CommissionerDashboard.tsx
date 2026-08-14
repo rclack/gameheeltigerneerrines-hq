@@ -13,9 +13,10 @@ interface CommissionerDashboardProps {
   draft?: Draft | null;
   participants?: DraftParticipant[];
   pickCount?: number;
+  siteOrigin?: string;
 }
 
-export default function CommissionerDashboard({ league, roster, draft = null, participants = [], pickCount = 0 }: CommissionerDashboardProps) {
+export default function CommissionerDashboard({ league, roster, draft = null, participants = [], pickCount = 0, siteOrigin }: CommissionerDashboardProps) {
   const activeInvitations = roster?.invitations.filter(
     (invitation) => invitation.status === "pending" && new Date(invitation.expires_at) > new Date(),
   ) ?? [];
@@ -124,12 +125,13 @@ export default function CommissionerDashboard({ league, roster, draft = null, pa
 
         </div>
 
-        {roster && (
+        {roster && siteOrigin && (
           <OwnerManagement
             leagueId={league.id}
             ownerCount={league.owner_count}
             members={roster.members}
             invitations={roster.invitations}
+            siteOrigin={siteOrigin}
           />
         )}
 

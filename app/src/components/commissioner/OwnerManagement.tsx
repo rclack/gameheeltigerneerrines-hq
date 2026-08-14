@@ -12,15 +12,16 @@ interface OwnerManagementProps {
   ownerCount: number;
   members: MemberWithProfile[];
   invitations: LeagueInvitation[];
+  siteOrigin: string;
 }
 
 const initialState: InvitationActionState = {};
 
-function CopyInviteButton({ token }: { token: string }) {
+function CopyInviteButton({ token, siteOrigin }: { token: string; siteOrigin: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copyLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}/invite/${token}`);
+    await navigator.clipboard.writeText(`${siteOrigin}/invite/${encodeURIComponent(token)}`);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   }
@@ -55,7 +56,7 @@ function RevokeButton({ invitationId }: { invitationId: string }) {
   );
 }
 
-export default function OwnerManagement({ leagueId, ownerCount, members, invitations }: OwnerManagementProps) {
+export default function OwnerManagement({ leagueId, ownerCount, members, invitations, siteOrigin }: OwnerManagementProps) {
   const inviteOwnerForLeague = inviteOwner.bind(null, leagueId);
   const [state, formAction, pending] = useActionState(inviteOwnerForLeague, initialState);
   const activeInvitations = invitations.filter(
@@ -110,7 +111,7 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
         {state.success && (
           <div role="status" className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
             <p>{state.success}</p>
-            {state.invitationToken && <CopyInviteButton token={state.invitationToken} />}
+            {state.invitationToken && <CopyInviteButton token={state.invitationToken} siteOrigin={siteOrigin} />}
           </div>
         )}
 
@@ -118,9 +119,10 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
           {activeInvitations.length === 0 ? (
             <p className="text-sm text-slate-500">No pending invitations.</p>
           ) : activeInvitations.map((invitation) => {
-            const invitePath = `/invite/${invitation.invitation_token}`;
+            const invitePath = `/invite/${encodeURIComponent(invitation.invitation_token)}`;
+            const inviteUrl = `${siteOrigin}${invitePath}`;
             const subject = encodeURIComponent("Join my GameHeelTigerNeerRines HQ league");
-            const body = encodeURIComponent(`Use this invitation link to join: ${invitePath}`);
+            const body = encodeURIComponent(`Use this invitation link to join: ${inviteUrl}`);
             return (
               <div key={invitation.id} className="rounded-lg border border-slate-200 p-4">
                 <div className="flex items-start justify-between gap-4">
@@ -131,13 +133,13 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
                   <RevokeButton invitationId={invitation.id} />
                 </div>
                 <div className="mt-3 flex gap-4">
-                  <CopyInviteButton token={invitation.invitation_token} />
+                  <CopyInviteButton token={invitation.invitation_token} siteOrigin={siteOrigin} />
                   <a className="text-sm font-semibold text-slate-600 hover:text-slate-900" href={`mailto:${invitation.invited_email}?subject=${subject}&body=${body}`}>
                     Email Link
                   </a>
                 </div>
                 <p className="mt-2 truncate rounded bg-slate-50 px-2 py-1 font-mono text-xs text-slate-500">
-                  /invite/{invitation.invitation_token}
+                  {inviteUrl}
                 </p>
               </div>
             );

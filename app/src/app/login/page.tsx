@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import AuthForm from "@/components/auth/AuthForm";
+import { safeAuthReturnPath } from "@/lib/auth/redirects";
+import { getSiteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 interface LoginPageProps {
@@ -8,11 +10,11 @@ interface LoginPageProps {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { next } = await searchParams;
+  const safeNext = safeAuthReturnPath(next);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) redirect("/commissioner");
+  if (user) redirect(safeNext);
 
-  const { next } = await searchParams;
-  const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : "/commissioner";
-  return <AuthForm mode="login" nextPath={safeNext} />;
+  return <AuthForm mode="login" nextPath={safeNext} siteOrigin={getSiteOrigin()} />;
 }
