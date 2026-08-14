@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { addManualEventAction, saveGameAction, scoreGameAction, voidManualEventAction } from "@/app/commissioner/scoring/actions";
+import { addManualEventAction, saveGameAction, scoreGameAction, syncCfbdScheduleAction, testCfbdConnectionAction, voidManualEventAction } from "@/app/commissioner/scoring/actions";
 import Button from "@/components/ui/Button";
+import { getGameScoringState } from "@/lib/cfbd/scoringState";
+import { syncRunFailureDetail } from "@/lib/cfbd/diagnostics";
 import type { GameDetail, SaveGameInput } from "@/services/gameService";
 import type { ScoringEventDetail } from "@/services/scoringService";
 import type { LeagueStandingsData } from "@/services/standingsService";
-import type { League, ScoringRule, Team } from "@/types/database";
+import type { ExternalSyncRun, League, ScoringRule, Team } from "@/types/database";
 
 interface DraftedTeam {
   team: Team;
@@ -25,6 +27,8 @@ interface Props {
   standings: LeagueStandingsData;
   draftedTeams: DraftedTeam[];
   teams: Team[];
+  cfbdConfiguration: "configured" | "not_configured";
+  syncRuns: ExternalSyncRun[];
 }
 
 const emptyGame = (league: League): SaveGameInput => ({
@@ -47,8 +51,13 @@ const emptyGame = (league: League): SaveGameInput => ({
 
 function points(points: number) { return `${points > 0 ? "+" : ""}${points}`; }
 function optionalNumber(value: string) { return value === "" ? null : Number(value); }
+function summaryNumber(syncRun: ExternalSyncRun, key: string) {
+  if (!syncRun.summary || typeof syncRun.summary !== "object" || Array.isArray(syncRun.summary)) return 0;
+  const value = syncRun.summary[key];
+  return typeof value === "number" ? value : 0;
+}
 
-export default function ScoringDashboard({ league, rules, events, games, standings, draftedTeams, teams }: Props) {
+export default function ScoringDashboard({ league, rules, events, games, standings, draftedTeams, teams, cfbdConfiguration, syncRuns }: Props) {
   const manualRules = rules.filter((rule) => rule.category !== "game_result");
   const [manual, setManual] = useState({ teamId: draftedTeams[0]?.team.id ?? "", ruleId: manualRules[0]?.id ?? "", week: "", eventDate: new Date().toISOString().slice(0, 10), notes: "" });
   const [confirmingManual, setConfirmingManual] = useState(false);
@@ -110,6 +119,14 @@ export default function ScoringDashboard({ league, rules, events, games, standin
       <div className="mx-auto max-w-7xl space-y-8 px-6 py-8">
         {(message || error) && <div className={`${error ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"} rounded-lg p-4 font-semibold`} role={error ? "alert" : "status"}>{error ?? message}</div>}
 
+        <section className="rounded-xl bg-white p-6 shadow">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div><h2 className="text-2xl font-bold">CFBD Data Sync</h2><p className="mt-1 text-sm text-slate-700">Imports provider data into internal games. It never awards points; final games require commissioner scoring confirmation.</p><p className="mt-3 font-semibold">Configuration: <span className={cfbdConfiguration === "configured" ? "text-green-700" : "text-amber-700"}>{cfbdConfiguration === "configured" ? "Configured" : "Not Configured"}</span></p></div>
+            <div className="flex flex-col gap-2 sm:flex-row"><Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => run(() => testCfbdConnectionAction(league.id))}>Test Connection</Button><Button className="sm:w-auto" variant="info" disabled={pending || cfbdConfiguration !== "configured"} onClick={() => run(() => syncCfbdScheduleAction(league.id))}>Sync {league.season} Schedule</Button></div>
+          </div>
+          <div className="mt-5 overflow-x-auto"><table className="min-w-full text-left text-sm"><thead><tr className="border-b text-slate-700"><th className="p-2">Started</th><th className="p-2">Status</th><th className="p-2">Fetched</th><th className="p-2">Created</th><th className="p-2">Updated</th><th className="p-2">Unchanged</th><th className="p-2">Skipped</th><th className="p-2">Unsupported non-FBS</th><th className="p-2">New finals</th><th className="p-2">Mapping issues</th><th className="p-2">Diagnostic</th></tr></thead><tbody>{syncRuns.map((syncRun) => { const failure = syncRunFailureDetail(syncRun.summary); return <tr key={syncRun.id} className="border-b"><td className="p-2">{new Date(syncRun.started_at).toLocaleString()}</td><td className="p-2 font-bold">{syncRun.status}</td><td className="p-2">{syncRun.fetched_count || summaryNumber(syncRun, "games_fetched")}</td><td className="p-2">{syncRun.created_count}</td><td className="p-2">{syncRun.updated_count}</td><td className="p-2">{syncRun.unchanged_count}</td><td className="p-2">{syncRun.skipped_count}</td><td className="p-2">{summaryNumber(syncRun, "unsupported_non_fbs_game_count")}</td><td className="p-2">{summaryNumber(syncRun, "newly_final_count")}</td><td className="p-2">{summaryNumber(syncRun, "ambiguous_count") + summaryNumber(syncRun, "unmatched_cfbd_count") + summaryNumber(syncRun, "unresolved_fbs_mapping_game_count")}</td><td className="max-w-sm p-2">{failure ? `${failure.stage} · ${failure.category} · ${failure.message}` : "—"}</td></tr>; })}</tbody></table>{!syncRuns.length && <p className="py-4 text-slate-700">No schedule synchronization has been run.</p>}</div>
+        </section>
+
         <section className="grid gap-6 xl:grid-cols-2">
           <div className="rounded-xl bg-white p-6 shadow">
             <h2 className="text-2xl font-bold">Add Manual Scoring Event</h2><p className="mt-1 text-sm text-slate-700">Postseason, awards, coaching, and statistical events. Game results use the game engine.</p>
@@ -144,7 +161,7 @@ export default function ScoringDashboard({ league, rules, events, games, standin
           </div>
         </section>
 
-        <section className="rounded-xl bg-white p-6 shadow"><h2 className="text-2xl font-bold">Games</h2><div className="mt-4 space-y-3">{games.length ? games.map((item) => <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg bg-slate-100 p-4 lg:flex-row lg:items-center"><div><p className="font-bold">Week {item.week}: {item.awayTeam.school_name} {item.away_score ?? "—"} at {item.homeTeam.school_name} {item.home_score ?? "—"}</p><p className="text-sm text-slate-500">{item.game_date} · {item.status}{item.scored_at ? ` · scored ${new Date(item.scored_at).toLocaleString()}` : " · not scored"}</p></div><div className="flex gap-2"><Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => editGame(item)}>Edit</Button><Button className="sm:w-auto" variant="sports" disabled={pending || item.status !== "final"} onClick={() => run(() => scoreGameAction(league.id, item.id))}>{item.scored_at ? "Reprocess Safely" : "Score Game"}</Button></div></div>) : <p className="text-slate-500">No games entered yet.</p>}</div></section>
+        <section className="rounded-xl bg-white p-6 shadow"><h2 className="text-2xl font-bold">Games and Scoring Review</h2><p className="mt-1 text-sm text-slate-700">Imported finals remain unscored until you explicitly process them.</p><div className="mt-4 space-y-3">{games.length ? games.map((item) => { const scoringState = getGameScoringState(item); const scoringLabel = scoringState === "scored" ? "Scored" : scoringState === "needs_reprocessing" ? "Result Changed / Reprocess" : scoringState === "needs_scoring" ? "Needs Scoring" : "Not Final"; return <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg bg-slate-100 p-4 lg:flex-row lg:items-center"><div><p className="font-bold">Week {item.week}: {item.awayTeam.school_name} {item.away_score ?? "—"} at {item.homeTeam.school_name} {item.home_score ?? "—"}</p><p className="text-sm text-slate-700">{item.game_date} · {item.status} · {item.external_provider ? item.external_provider.toUpperCase() : "Manual"}{item.manual_override ? " · manual override" : ""}{item.provider_synced_at ? ` · synced ${new Date(item.provider_synced_at).toLocaleString()}` : ""}</p><p className={`${scoringState === "scored" ? "text-green-700" : scoringState === "needs_reprocessing" ? "text-red-700" : "text-amber-700"} mt-1 text-sm font-black`}>{item.status === "final" ? `Final — ${scoringLabel}` : scoringLabel}</p></div><div className="flex gap-2"><Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => editGame(item)}>Edit</Button><Button className="sm:w-auto" variant="sports" disabled={pending || item.status !== "final" || scoringState === "scored"} onClick={() => run(() => scoreGameAction(league.id, item.id))}>{scoringState === "needs_reprocessing" ? "Reprocess Scoring" : scoringState === "scored" ? "Scoring Current" : "Process Scoring"}</Button></div></div>; }) : <p className="text-slate-500">No games entered yet.</p>}</div></section>
 
         <section className="rounded-xl bg-white p-6 shadow"><div className="flex flex-col justify-between gap-3 sm:flex-row"><div><h2 className="text-2xl font-bold">Current Standings</h2><p className="text-sm text-slate-500">Equal totals share rank.</p></div><Link href={`/league/${league.id}/standings`} className="font-bold text-blue-700">Full standings →</Link></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{standings.rows.map((row) => <div key={row.memberId} className="rounded-lg bg-slate-100 p-4"><p className="text-sm font-black text-slate-500">#{row.rank}</p><p className="font-bold">{row.poolTeamName ?? row.ownerName}</p><p className="mt-2 text-2xl font-black">{row.totalPoints}</p></div>)}</div></section>
 

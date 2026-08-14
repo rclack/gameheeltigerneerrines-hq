@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Server environment
+
+CFBD schedule synchronization requires `CFBD_API_KEY` in the server runtime.
+Never prefix it with `NEXT_PUBLIC_`, commit its value, or expose it to client
+components. Local developers may place it in the already-ignored `.env.local`;
+deployed environments should use their platform's encrypted secret settings.
+
 ## Getting Started
 
 First, run the development server:

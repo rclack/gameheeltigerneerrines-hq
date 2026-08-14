@@ -18,7 +18,7 @@ export interface SaveGameInput {
   awayTeamId: string;
   homeScore: number | null;
   awayScore: number | null;
-  status: "scheduled" | "final" | "canceled";
+  status: "scheduled" | "in_progress" | "final" | "postponed" | "canceled";
   neutralSite: boolean;
   postseason: boolean;
   rankingSource: string | null;
@@ -26,22 +26,39 @@ export interface SaveGameInput {
   awayRank: number | null;
 }
 
+const POSTGREST_IN_FILTER_CHUNK_SIZE = 100;
+
+export function chunkPostgrestFilterValues<T>(values: T[], size = POSTGREST_IN_FILTER_CHUNK_SIZE) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size));
+  return chunks;
+}
+
+function gameReadError(stage: string, error: { code?: string; message?: string }) {
+  console.error(JSON.stringify({ event: "commissioner_game_read_failure", stage, code: error.code ?? null, message: error.message ?? "Database read failed." }));
+  return new Error(`Commissioner game data could not be loaded while ${stage}.`);
+}
+
 export async function getLeagueGames(supabase: SupabaseClient<Database>, leagueId: string): Promise<GameDetail[]> {
   const { data: games, error } = await supabase.from("cfb_games").select("*").eq("league_id", leagueId).order("game_date", { ascending: false });
-  if (error) throw error;
+  if (error) throw gameReadError("loading games", error);
   if (!games.length) return [];
   const teamIds = [...new Set(games.flatMap((game) => [game.home_team_id, game.away_team_id]))];
-  const [teamsResult, rankingsResult] = await Promise.all([
+  const [teamsResult, rankingResults] = await Promise.all([
     supabase.from("teams").select("*").in("id", teamIds),
-    supabase.from("team_ranking_snapshots").select("*").in("game_id", games.map((game) => game.id)),
+    Promise.all(chunkPostgrestFilterValues(games.map((game) => game.id)).map((gameIds) =>
+      supabase.from("team_ranking_snapshots").select("*").in("game_id", gameIds),
+    )),
   ]);
-  if (teamsResult.error) throw teamsResult.error;
-  if (rankingsResult.error) throw rankingsResult.error;
+  if (teamsResult.error) throw gameReadError("loading game teams", teamsResult.error);
+  const failedRankings = rankingResults.find((result) => result.error);
+  if (failedRankings?.error) throw gameReadError("loading game rankings", failedRankings.error);
+  const rankings = rankingResults.flatMap((result) => result.data ?? []);
   const teams = new Map(teamsResult.data.map((team) => [team.id, team]));
   return games.flatMap((game) => {
     const homeTeam = teams.get(game.home_team_id);
     const awayTeam = teams.get(game.away_team_id);
-    return homeTeam && awayTeam ? [{ ...game, homeTeam, awayTeam, rankings: rankingsResult.data.filter((rank) => rank.game_id === game.id) }] : [];
+    return homeTeam && awayTeam ? [{ ...game, homeTeam, awayTeam, rankings: rankings.filter((rank) => rank.game_id === game.id) }] : [];
   });
 }
 

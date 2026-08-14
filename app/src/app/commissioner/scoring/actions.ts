@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { saveGame, scoreGame, type SaveGameInput } from "@/services/gameService";
 import { addManualScoringEvent, voidManualScoringEvent } from "@/services/scoringService";
 import { createClient } from "@/lib/supabase/server";
+import { checkCfbdConnection, syncCfbdSchedule } from "@/services/cfbdService";
+import { CfbdSyncError } from "@/lib/cfbd/diagnostics";
 
 export interface ScoringActionState { error?: string; success?: string }
 
@@ -73,4 +75,27 @@ export async function scoreGameAction(leagueId: string, gameId: string): Promise
     refreshScoring(leagueId);
     return { success: `Game scoring is current (${count} active event${count === 1 ? "" : "s"}).` };
   } catch (error) { return { error: safeError(error) }; }
+}
+
+export async function testCfbdConnectionAction(leagueId: string): Promise<ScoringActionState> {
+  const supabase = await authorizedClient(leagueId);
+  if (!supabase) return { error: "You do not have permission to test providers for this league." };
+  const result = await checkCfbdConnection();
+  return result.status === "connected" ? { success: result.message } : { error: result.message };
+}
+
+export async function syncCfbdScheduleAction(leagueId: string): Promise<ScoringActionState> {
+  const supabase = await authorizedClient(leagueId);
+  if (!supabase) return { error: "You do not have permission to synchronize this league." };
+  try {
+    const { data: league, error } = await supabase.from("leagues").select("season").eq("id", leagueId).single();
+    if (error) throw error;
+    const run = await syncCfbdSchedule(supabase, leagueId, league.season);
+    refreshScoring(leagueId);
+    return { success: `CFBD sync ${run.status}: ${run.created_count} created, ${run.updated_count} updated, ${run.unchanged_count} unchanged, ${run.skipped_count} skipped.` };
+  } catch (error) {
+    refreshScoring(leagueId);
+    if (error instanceof CfbdSyncError) return { error: error.userMessage };
+    return { error: "CFBD schedule synchronization failed. The failed attempt is available in the sync audit." };
+  }
 }

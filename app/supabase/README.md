@@ -46,3 +46,14 @@ creates the official scoring-rule catalog, conference classifications, internal
 game and ranking models, the auditable scoring-event ledger, and commissioner-only
 scoring RPCs. The migration seeds the official rules and 2026 conference tiers;
 `seed.sql` does not need to be rerun when adding scoring to an existing project.
+
+## CFBD provider foundation
+
+Apply `20260820000000_cfbd_foundation.sql` after the season-scoring migration.
+It adds provider-aware game identity, durable CFBD team mappings, sync-run audit,
+conservative manual overrides, and commissioner-only synchronization RPCs. It
+does not seed provider mappings and does not require `seed.sql`; the first CFBD
+schedule sync persists only deterministic mappings and reports unresolved names.
+Apply `20260821000000_cfbd_sync_counter_ambiguity_repair.sql` immediately after
+the foundation migration; it replaces the import RPC with unambiguous local
+counter names while preserving its signature, authorization, and behavior.
