@@ -225,6 +225,16 @@ export type Database = {
         Args: { target_token: string };
         Returns: string | null;
       };
+      inspect_league_invitation: {
+        Args: { target_token: string };
+        Returns: Array<{
+          invited_email: string;
+          invitation_status: Database["public"]["Enums"]["league_invitation_status"];
+          expires_at: string;
+          league_id: string;
+          accepted_by_current_user: boolean;
+        }>;
+      };
       randomize_draft_order: { Args: { target_league_id: string }; Returns: string };
       reset_draft: { Args: { target_draft_id: string }; Returns: boolean };
       start_draft: { Args: { target_draft_id: string }; Returns: boolean };

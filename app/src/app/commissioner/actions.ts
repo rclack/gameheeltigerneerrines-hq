@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createInvitation, revokeInvitation } from "@/services/invitationService";
+import { errorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 
 export interface InvitationActionState {
@@ -51,7 +52,7 @@ export async function inviteOwner(
       invitationToken: invitation.invitation_token,
     };
   } catch (error) {
-    return { error: invitationError(error instanceof Error ? error.message : "") };
+    return { error: invitationError(errorMessage(error)) };
   }
 }
 

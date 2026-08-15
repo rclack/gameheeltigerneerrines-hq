@@ -53,3 +53,15 @@ export async function getInvitationByToken(
   if (error) throw error;
   return data;
 }
+
+export async function inspectInvitationByToken(
+  supabase: SupabaseClient<Database>,
+  token: string,
+) {
+  const { data, error } = await supabase.rpc("inspect_league_invitation", {
+    target_token: token,
+  });
+
+  if (error) throw error;
+  return data[0] ?? null;
+}

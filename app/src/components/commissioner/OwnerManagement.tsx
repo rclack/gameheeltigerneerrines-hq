@@ -184,12 +184,15 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
                   </div>
                   <RevokeButton invitationId={invitation.id} />
                 </div>
-                <div className="mt-3 flex gap-4">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
                   <CopyInviteButton token={invitation.invitation_token} siteOrigin={siteOrigin} />
-                  <a className="text-sm font-semibold text-slate-600 hover:text-slate-900" href={`mailto:${invitation.invited_email}?subject=${subject}&body=${body}`}>
-                    Email Link
+                  <a className="rounded text-sm font-bold text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2" href={`mailto:${invitation.invited_email}?subject=${subject}&body=${body}`}>
+                    Compose Email
                   </a>
                 </div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Compose Email opens your configured mail app; Copy Invite Link is the reliable manual option.
+                </p>
                 <p className="mt-2 truncate rounded bg-slate-100 px-2 py-1.5 font-mono text-xs text-slate-500">
                   {inviteUrl}
                 </p>
