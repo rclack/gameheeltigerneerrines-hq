@@ -28,5 +28,5 @@ test("production auth redirects reject external, malformed, and unknown paths", 
     "/unknown",
     `/league/${leagueId}/unknown`,
     "/invite/not-a-token",
-  ]) assert.equal(safeAuthReturnPath(path), "/commissioner");
+  ]) assert.equal(safeAuthReturnPath(path), "/leagues");
 });

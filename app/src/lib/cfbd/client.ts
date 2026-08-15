@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCfbdGames, parseCfbdTeams } from "./normalization";
+import { parseCfbdGames, parseCfbdRankings, parseCfbdTeams } from "./normalization";
 import { classifyCfbdHttpStatus } from "./http";
 
 const CFBD_BASE_URL = "https://api.collegefootballdata.com";
@@ -46,5 +46,8 @@ export async function fetchCfbdGames(season: string, fetcher: typeof fetch = fet
   return parseCfbdGames(await request("/games", { year: season, classification: "fbs" }, fetcher));
 }
 
-// Reserved boundary for a later approved-ranking milestone. It intentionally performs no fetch today.
 export const CFBD_RANKINGS_ENDPOINT = "/rankings";
+
+export async function fetchCfbdRankings(season: string, fetcher: typeof fetch = fetch) {
+  return parseCfbdRankings(await request(CFBD_RANKINGS_ENDPOINT, { year: season, seasonType: "both" }, fetcher));
+}

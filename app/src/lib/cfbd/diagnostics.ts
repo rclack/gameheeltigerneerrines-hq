@@ -4,10 +4,12 @@ export type CfbdSyncStage =
   | "audit_creation"
   | "fetching_teams"
   | "fetching_games"
+  | "fetching_rankings"
   | "loading_database_context"
   | "mapping_teams"
   | "saving_team_mappings"
   | "importing_games"
+  | "importing_rankings"
   | "recording_failure";
 
 export type CfbdSyncErrorCategory =
@@ -23,6 +25,7 @@ export type CfbdSyncErrorCategory =
 export interface SyncProgress {
   teamsFetched: number;
   gamesFetched: number;
+  rankingWeeksFetched: number;
   mappingsCreated: number;
   gamesMapped: number;
   gamesUnmapped: number;
@@ -39,10 +42,12 @@ const STAGE_LABELS: Record<CfbdSyncStage, string> = {
   audit_creation: "creating the sync audit",
   fetching_teams: "fetching teams",
   fetching_games: "fetching games",
+  fetching_rankings: "fetching rankings",
   loading_database_context: "loading database context",
   mapping_teams: "mapping teams",
   saving_team_mappings: "saving team mappings",
   importing_games: "importing games into the database",
+  importing_rankings: "importing pregame ranking snapshots",
   recording_failure: "recording the sync failure",
 };
 
@@ -109,6 +114,7 @@ export function syncFailureSummary(error: CfbdSyncError, progress: SyncProgress)
     error_message: error.userMessage,
     teams_fetched: progress.teamsFetched,
     games_fetched: progress.gamesFetched,
+    ranking_weeks_fetched: progress.rankingWeeksFetched,
     mappings_created: progress.mappingsCreated,
     games_mapped: progress.gamesMapped,
     games_unmapped: progress.gamesUnmapped,

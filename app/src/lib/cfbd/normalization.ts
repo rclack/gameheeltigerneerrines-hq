@@ -1,4 +1,4 @@
-import type { CfbdGame, CfbdTeam, InternalGameStatus, NormalizedCfbdGame } from "./types.ts";
+import type { CfbdGame, CfbdRankingWeek, CfbdTeam, InternalGameStatus, NormalizedCfbdGame } from "./types.ts";
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("CFBD returned a malformed record.");
@@ -53,6 +53,30 @@ export function parseCfbdGames(payload: unknown): CfbdGame[] {
   });
 }
 
+export function parseCfbdRankings(payload: unknown): CfbdRankingWeek[] {
+  if (!Array.isArray(payload)) throw new Error("CFBD rankings response was not an array.");
+  return payload.map((raw) => {
+    const item = record(raw);
+    if (!Array.isArray(item.polls)) throw new Error("CFBD ranking week is missing polls.");
+    return {
+      season: requiredNumber(item.season, "ranking season"),
+      seasonType: requiredString(item.seasonType, "ranking season type"),
+      week: requiredNumber(item.week, "ranking week"),
+      polls: item.polls.map((rawPoll) => {
+        const poll = record(rawPoll);
+        if (!Array.isArray(poll.ranks)) throw new Error("CFBD poll is missing ranks.");
+        return {
+          poll: requiredString(poll.poll, "poll name"),
+          ranks: poll.ranks.map((rawRank) => {
+            const rank = record(rawRank);
+            return { rank: requiredNumber(rank.rank, "poll rank"), school: requiredString(rank.school, "ranked school") };
+          }),
+        };
+      }),
+    };
+  });
+}
+
 export function normalizeCfbdStatus(game: CfbdGame): InternalGameStatus {
   if (game.completed || (game.homePoints !== null && game.homePoints !== undefined && game.awayPoints !== null && game.awayPoints !== undefined && game.status?.toLowerCase().includes("final"))) return "final";
   const status = game.status?.toLowerCase().replaceAll("_", " ") ?? "";
@@ -63,11 +87,14 @@ export function normalizeCfbdStatus(game: CfbdGame): InternalGameStatus {
 }
 
 export function normalizeCfbdGame(game: CfbdGame): NormalizedCfbdGame {
+  const startAt = new Date(game.startDate);
+  if (Number.isNaN(startAt.getTime())) throw new Error("CFBD game has an invalid start date.");
   return {
     external_id: String(game.id),
     season: String(game.season),
     week: game.week,
-    game_date: new Date(game.startDate).toISOString().slice(0, 10),
+    game_date: startAt.toISOString().slice(0, 10),
+    start_at: startAt.toISOString(),
     home_external_team_id: game.homeId == null ? null : String(game.homeId),
     home_external_name: game.homeTeam,
     away_external_team_id: game.awayId == null ? null : String(game.awayId),

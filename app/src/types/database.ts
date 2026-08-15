@@ -175,9 +175,9 @@ export type Database = {
         Relationships: [];
       };
       cfb_games: {
-        Row: { id: string; league_id: string; external_id: string | null; external_provider: string | null; data_source: string; provider_payload_hash: string | null; provider_synced_at: string | null; manual_override: boolean; season: string; week: number; game_date: string; home_team_id: string | null; away_team_id: string | null; home_external_opponent_id: string | null; away_external_opponent_id: string | null; home_score: number | null; away_score: number | null; status: string; neutral_site: boolean; postseason: boolean; scoring_fingerprint: string | null; scored_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; league_id: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season: string; week: number; game_date: string; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
-        Update: { id?: string; league_id?: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season?: string; week?: number; game_date?: string; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; league_id: string; external_id: string | null; external_provider: string | null; data_source: string; provider_payload_hash: string | null; provider_synced_at: string | null; manual_override: boolean; season: string; week: number; game_date: string; start_at: string | null; home_team_id: string | null; away_team_id: string | null; home_external_opponent_id: string | null; away_external_opponent_id: string | null; home_score: number | null; away_score: number | null; status: string; neutral_site: boolean; postseason: boolean; scoring_fingerprint: string | null; scored_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season: string; week: number; game_date: string; start_at?: string | null; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; league_id?: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season?: string; week?: number; game_date?: string; start_at?: string | null; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
         Relationships: [];
       };
       external_opponents: {
@@ -199,9 +199,9 @@ export type Database = {
         Relationships: [];
       };
       team_ranking_snapshots: {
-        Row: { id: string; league_id: string; game_id: string | null; team_id: string; season: string; week: number; ranking_source: string; rank: number; captured_at: string; created_at: string };
-        Insert: { id?: string; league_id: string; game_id?: string | null; team_id: string; season: string; week: number; ranking_source: string; rank: number; captured_at?: string; created_at?: string };
-        Update: { id?: string; league_id?: string; game_id?: string | null; team_id?: string; season?: string; week?: number; ranking_source?: string; rank?: number; captured_at?: string; created_at?: string };
+        Row: { id: string; league_id: string; game_id: string | null; team_id: string; season: string; week: number; ranking_source: string; rank: number | null; captured_at: string; created_at: string };
+        Insert: { id?: string; league_id: string; game_id?: string | null; team_id: string; season: string; week: number; ranking_source: string; rank?: number | null; captured_at?: string; created_at?: string };
+        Update: { id?: string; league_id?: string; game_id?: string | null; team_id?: string; season?: string; week?: number; ranking_source?: string; rank?: number | null; captured_at?: string; created_at?: string };
         Relationships: [];
       };
       scoring_events: {
@@ -261,6 +261,7 @@ export type Database = {
       fail_external_sync: { Args: { target_sync_run_id: string; target_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
       save_external_team_mappings: { Args: { target_league_id: string; target_provider: string; target_mappings: Json }; Returns: number };
       apply_external_game_sync: { Args: { target_sync_run_id: string; target_games: Json; target_external_opponents: Json; target_mapping_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
+      apply_cfb_ranking_snapshot_sync: { Args: { target_sync_run_id: string; target_snapshots: Json; target_missing_count: number }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";

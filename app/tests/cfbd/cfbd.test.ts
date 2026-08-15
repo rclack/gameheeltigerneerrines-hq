@@ -15,7 +15,7 @@ const game = { id: 9001, season: 2026, week: 3, startDate: "2026-09-12T19:00:00Z
 
 test("A: validates and normalizes a CFBD game response", () => {
   const parsed = parseCfbdGames([game]);
-  assert.deepEqual(normalizeCfbdGame(parsed[0]), { external_id: "9001", season: "2026", week: 3, game_date: "2026-09-12", home_external_team_id: "1", home_external_name: "South Carolina", away_external_team_id: "2", away_external_name: "UConn", home_score: null, away_score: null, status: "scheduled", neutral_site: false, postseason: false });
+  assert.deepEqual(normalizeCfbdGame(parsed[0]), { external_id: "9001", season: "2026", week: 3, game_date: "2026-09-12", start_at: "2026-09-12T19:00:00.000Z", home_external_team_id: "1", home_external_name: "South Carolina", away_external_team_id: "2", away_external_name: "UConn", home_score: null, away_score: null, status: "scheduled", neutral_site: false, postseason: false });
   assert.throws(() => parseCfbdGames({}), /not an array/);
 });
 
@@ -69,7 +69,7 @@ test("M/N: classifies authentication, provider, and rate-limit failures", () => 
 
 test("failed schedule fetch retains a safe stage, category, message, and progress", () => {
   const failure = new CfbdSyncError("fetching_games", "provider_error", "CFBD schedule synchronization failed while fetching games: CFBD returned HTTP 400.");
-  const summary = syncFailureSummary(failure, { teamsFetched: 138, gamesFetched: 0, mappingsCreated: 0, gamesMapped: 0, gamesUnmapped: 0 });
+  const summary = syncFailureSummary(failure, { teamsFetched: 138, gamesFetched: 0, rankingWeeksFetched: 0, mappingsCreated: 0, gamesMapped: 0, gamesUnmapped: 0 });
   assert.deepEqual(syncRunFailureDetail(summary), {
     stage: "fetching_games",
     category: "provider_error",

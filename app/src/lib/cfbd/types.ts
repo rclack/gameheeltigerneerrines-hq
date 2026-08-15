@@ -20,6 +20,23 @@ export interface CfbdGame {
   awayPoints?: number | null;
 }
 
+export interface CfbdRankingEntry {
+  rank: number;
+  school: string;
+}
+
+export interface CfbdPoll {
+  poll: string;
+  ranks: CfbdRankingEntry[];
+}
+
+export interface CfbdRankingWeek {
+  season: number;
+  seasonType: string;
+  week: number;
+  polls: CfbdPoll[];
+}
+
 export type InternalGameStatus = "scheduled" | "in_progress" | "final" | "postponed" | "canceled";
 
 export interface NormalizedCfbdGame {
@@ -27,6 +44,7 @@ export interface NormalizedCfbdGame {
   season: string;
   week: number;
   game_date: string;
+  start_at: string;
   home_external_team_id: string | null;
   home_external_name: string;
   away_external_team_id: string | null;

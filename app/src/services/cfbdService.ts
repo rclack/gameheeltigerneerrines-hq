@@ -2,10 +2,11 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { CfbdError, fetchCfbdFbsTeams, fetchCfbdGames, testCfbdConnection } from "@/lib/cfbd/client";
+import { CfbdError, fetchCfbdFbsTeams, fetchCfbdGames, fetchCfbdRankings, testCfbdConnection } from "@/lib/cfbd/client";
 import { buildTeamMappingAudit } from "@/lib/cfbd/mapping";
 import { normalizeCfbdGame } from "@/lib/cfbd/normalization";
 import { prepareCfbdSchedule } from "@/lib/cfbd/schedule";
+import { buildRankingSnapshots, getCfpFirstRankingsAt } from "@/lib/cfbd/rankings";
 import { CfbdSyncError, databaseSyncError, syncFailureSummary, type CfbdSyncStage, type SyncProgress } from "@/lib/cfbd/diagnostics";
 import type { Database, ExternalSyncRun, Json, Team } from "@/types/database";
 
@@ -37,10 +38,11 @@ async function beginSync(supabase: SupabaseClient<Database>, leagueId: string) {
 
 function providerSyncError(stage: CfbdSyncStage, error: unknown) {
   if (error instanceof CfbdSyncError) return error;
+  const operation = stage === "fetching_teams" ? "fetching teams" : stage === "fetching_rankings" ? "fetching rankings" : "fetching games";
   if (error instanceof CfbdError) {
-    return new CfbdSyncError(stage, error.code, `CFBD schedule synchronization failed while ${stage === "fetching_teams" ? "fetching teams" : "fetching games"}: ${error.message}`, { cause: error });
+    return new CfbdSyncError(stage, error.code, `CFBD schedule synchronization failed while ${operation}: ${error.message}`, { cause: error });
   }
-  return new CfbdSyncError(stage, "invalid_response", `CFBD schedule synchronization failed while ${stage === "fetching_teams" ? "fetching teams" : "fetching games"}: provider response could not be processed.`, { cause: error });
+  return new CfbdSyncError(stage, "invalid_response", `CFBD schedule synchronization failed while ${operation}: provider response could not be processed.`, { cause: error });
 }
 
 async function failSync(supabase: SupabaseClient<Database>, runId: string, error: CfbdSyncError, progress: SyncProgress) {
@@ -49,7 +51,7 @@ async function failSync(supabase: SupabaseClient<Database>, runId: string, error
 }
 
 export async function syncCfbdSchedule(supabase: SupabaseClient<Database>, leagueId: string, season: string): Promise<ExternalSyncRun> {
-  const progress: SyncProgress = { teamsFetched: 0, gamesFetched: 0, mappingsCreated: 0, gamesMapped: 0, gamesUnmapped: 0 };
+  const progress: SyncProgress = { teamsFetched: 0, gamesFetched: 0, rankingWeeksFetched: 0, mappingsCreated: 0, gamesMapped: 0, gamesUnmapped: 0 };
   let run: ExternalSyncRun;
   try {
     run = await beginSync(supabase, leagueId);
@@ -66,6 +68,11 @@ export async function syncCfbdSchedule(supabase: SupabaseClient<Database>, leagu
     try { externalGames = await fetchCfbdGames(season); }
     catch (error) { throw providerSyncError("fetching_games", error); }
     progress.gamesFetched = externalGames.length;
+
+    let rankingWeeks;
+    try { rankingWeeks = await fetchCfbdRankings(season); }
+    catch (error) { throw providerSyncError("fetching_rankings", error); }
+    progress.rankingWeeksFetched = rankingWeeks.length;
 
     const [internalResult, persistedResult] = await Promise.all([
       supabase.from("teams").select("*").eq("active", true),
@@ -86,6 +93,12 @@ export async function syncCfbdSchedule(supabase: SupabaseClient<Database>, leagu
     const byId = new Map(allMappings.map((mapping) => [mapping.external_team_id, mapping.team_id]));
     const fbsExternalIds = new Set(externalTeams.map((team) => String(team.id)));
     const prepared = prepareCfbdSchedule(externalGames.map(normalizeCfbdGame), fbsExternalIds, byId);
+    let rankingResult;
+    try {
+      rankingResult = buildRankingSnapshots(externalGames.map(normalizeCfbdGame), prepared.games, rankingWeeks, getCfpFirstRankingsAt(season));
+    } catch (error) {
+      throw new CfbdSyncError("fetching_rankings", "invalid_response", error instanceof Error ? error.message : "CFBD rankings could not be interpreted.", { cause: error });
+    }
     progress.gamesMapped = prepared.games.length;
     progress.gamesUnmapped = prepared.unresolvedGames.length;
     const summary = {
@@ -100,10 +113,20 @@ export async function syncCfbdSchedule(supabase: SupabaseClient<Database>, leagu
       unsupported_non_fbs_games: [],
       unresolved_fbs_mapping_game_count: prepared.unresolvedGames.length,
       unresolved_fbs_mapping_games: prepared.unresolvedGames,
+      ranking_weeks_fetched: rankingWeeks.length,
+      ranking_snapshots_prepared: rankingResult.snapshots.length,
+      ranking_context_unavailable_count: rankingResult.missing.length,
+      ranking_context_unavailable_games: rankingResult.missing,
     };
-    const { data, error } = await supabase.rpc("apply_external_game_sync", { target_sync_run_id: run.id, target_games: prepared.games as unknown as Json, target_external_opponents: prepared.externalOpponents as unknown as Json, target_mapping_summary: summary as unknown as Json });
+    const { error } = await supabase.rpc("apply_external_game_sync", { target_sync_run_id: run.id, target_games: prepared.games as unknown as Json, target_external_opponents: prepared.externalOpponents as unknown as Json, target_mapping_summary: summary as unknown as Json });
     if (error) throw databaseSyncError("importing_games", error);
-    return data;
+    const rankingApply = await supabase.rpc("apply_cfb_ranking_snapshot_sync", {
+      target_sync_run_id: run.id,
+      target_snapshots: rankingResult.snapshots as unknown as Json,
+      target_missing_count: rankingResult.missing.length,
+    });
+    if (rankingApply.error) throw databaseSyncError("importing_rankings", rankingApply.error);
+    return rankingApply.data;
   } catch (error) {
     const failure = error instanceof CfbdSyncError ? error : new CfbdSyncError("mapping_teams", "internal_error", "CFBD schedule synchronization failed while preparing games: provider data could not be processed.", { cause: error });
     await failSync(supabase, run.id, failure, progress);
