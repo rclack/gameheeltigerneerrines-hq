@@ -29,7 +29,7 @@ export default function Button({
 
   return (
     <button
-      className={`w-full rounded-lg px-4 py-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${variants[variant]} ${className}`}
+      className={`w-full rounded-lg px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${variants[variant]} ${className}`}
       {...props}
     >
       {children}

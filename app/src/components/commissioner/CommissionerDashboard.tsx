@@ -1,11 +1,11 @@
-import Button from "@/components/ui/Button";
-import type { League } from "@/types/database";
-import type { LeagueRoster } from "@/services/membershipService";
-import OwnerManagement from "./OwnerManagement";
-import DraftSetup from "./DraftSetup";
-import type { Draft } from "@/types/database";
-import type { DraftParticipant } from "@/services/draftService";
 import Link from "next/link";
+
+import Button from "@/components/ui/Button";
+import type { DraftParticipant } from "@/services/draftService";
+import type { LeagueRoster } from "@/services/membershipService";
+import type { Draft, League } from "@/types/database";
+import DraftSetup from "./DraftSetup";
+import OwnerManagement from "./OwnerManagement";
 
 interface CommissionerDashboardProps {
   league: League;
@@ -16,116 +16,236 @@ interface CommissionerDashboardProps {
   siteOrigin?: string;
 }
 
-export default function CommissionerDashboard({ league, roster, draft = null, participants = [], pickCount = 0, siteOrigin }: CommissionerDashboardProps) {
+function formatDraftStatus(status: Draft["status"] | undefined) {
+  if (!status || status === "not_started") return "Preseason";
+  return status.replace("_", " ");
+}
+
+export default function CommissionerDashboard({
+  league,
+  roster,
+  draft = null,
+  participants = [],
+  pickCount = 0,
+  siteOrigin,
+}: CommissionerDashboardProps) {
   const activeInvitations = roster?.invitations.filter(
     (invitation) => invitation.status === "pending" && new Date(invitation.expires_at) > new Date(),
   ) ?? [];
   const memberCount = roster?.members.length ?? 1;
-  return (
-    
-    <main className="min-h-screen bg-slate-100">
-      {/* Header */}
-      <header className="bg-blue-950 text-white shadow-lg">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-5">
-          <h1 className="text-3xl font-bold">
-            🏈 Commissioner Portal
-          </h1>
+  const totalPicks = league.owner_count * league.teams_per_owner;
+  const ownerProgress = Math.min((memberCount / league.owner_count) * 100, 100);
+  const draftProgress = totalPicks ? Math.min((pickCount / totalPicks) * 100, 100) : 0;
+  const draftStatus = formatDraftStatus(draft?.status);
+  const draftIsOpen = draft && draft.status !== "not_started";
+  const draftIsComplete = draft?.status === "complete";
+  const operationsFocus = draftIsComplete
+    ? "results"
+    : memberCount < league.owner_count || activeInvitations.length > 0
+      ? "owners"
+      : draft?.status === "live" || draft?.status === "paused"
+        ? "admin"
+        : "league";
+  const operationCardClass = (module: typeof operationsFocus) =>
+    `flex min-h-56 flex-col rounded-2xl bg-white p-5 shadow-sm transition ${
+      operationsFocus === module
+        ? "border-2 border-orange-300 ring-4 ring-orange-100/70"
+        : "border border-slate-200"
+    }`;
 
-          <div className="flex flex-col items-end gap-2 text-right sm:flex-row sm:items-center">
-            <Link href={`/league/${league.id}`} className="rounded-lg bg-white px-4 py-2 font-bold text-blue-950 transition hover:bg-blue-100">View My League</Link>
+  return (
+    <main className="min-h-screen bg-slate-100 text-slate-950">
+      <header className="relative overflow-hidden bg-[#061a38] text-white shadow-xl">
+        <div className="pointer-events-none absolute inset-0 opacity-30" aria-hidden="true">
+          <div className="absolute -right-24 -top-32 h-96 w-96 rounded-full border-[52px] border-white/5" />
+          <div className="absolute inset-y-0 left-1/2 w-px bg-white/10" />
+          <div className="absolute bottom-0 left-0 h-px w-full bg-orange-400/60" />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          <nav className="flex items-center justify-between gap-4" aria-label="Commissioner navigation">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-300/40 bg-orange-500 font-black tracking-tight shadow-lg shadow-orange-950/30">
+                GH
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black uppercase tracking-[0.18em] text-white">Commissioner HQ</p>
+                <p className="truncate text-xs text-blue-200">College Football League Operations</p>
+              </div>
+            </div>
+            <Link
+              href={`/league/${league.id}`}
+              className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:px-4"
+            >
+              View League
+            </Link>
+          </nav>
+
+          <div className="mt-7 grid gap-6 pb-5 lg:grid-cols-[1fr_22rem] lg:items-end">
             <div>
-              <p className="font-semibold">GameHeelTigerNeerRines HQ</p>
-              <p className="text-sm text-slate-300">{league.season} Season</p>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.16em]">
+                <span className="rounded-full bg-orange-500 px-3 py-1 text-white">{league.season} Season</span>
+                <span className="rounded-full border border-blue-300/25 bg-blue-900/50 px-3 py-1 text-blue-100 capitalize">{draftStatus}</span>
+                <span className="text-blue-200">Commissioner Control</span>
+              </div>
+              <p className="mt-4 text-sm font-bold uppercase tracking-[0.2em] text-orange-300">League Command Center</p>
+              <h1 className="mt-1.5 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl">
+                {league.name}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">
+                Manage your roster, run the college team draft, and keep the season moving from one central sideline.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-300">{draftIsComplete ? "Draft recap" : "Next up"}</p>
+                  <h2 className="mt-1 text-xl font-black">{draftIsComplete ? "Draft Complete" : "Draft Room"}</h2>
+                </div>
+                <span className="rounded-md bg-slate-950/50 px-2.5 py-1 font-mono text-xs font-bold uppercase text-blue-100">{draftStatus}</span>
+              </div>
+              <p className="mt-3 text-sm leading-5 text-blue-100">
+                {draftIsComplete
+                  ? "The board is final. Review every selection and move into season operations."
+                  : draftIsOpen
+                    ? "The board is active. Enter the room to monitor picks and keep owners on schedule."
+                    : "Finalize owners and draft order below, then start the league's headline event."}
+              </p>
+              {draftIsOpen ? (
+                <Link
+                  href={`/draft/${draft.id}`}
+                  className="mt-5 block rounded-xl bg-orange-500 px-5 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#061a38]"
+                >
+                  {draftIsComplete ? "Review Draft Results" : "Enter Draft Room"}
+                </Link>
+              ) : (
+                <a
+                  href="#draft-operations"
+                  className="mt-5 block rounded-xl bg-orange-500 px-5 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#061a38]"
+                >
+                  Prepare the Draft
+                </a>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl p-8">
-
-        {/* League Overview */}
-        <div className="mb-8 rounded-xl bg-white p-6 shadow">
-          <h2 className="mb-4 text-2xl font-bold">
-            League Overview
-          </h2>
-
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-
-            <div className="rounded-lg bg-slate-100 p-4">
-              <p className="text-sm text-slate-500">League</p>
-              <p className="text-xl font-bold">{league.name}</p>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <section aria-labelledby="league-overview-title">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Live league snapshot</p>
+              <h2 id="league-overview-title" className="mt-1 text-2xl font-black tracking-tight text-slate-950">League Overview</h2>
             </div>
-
-            <div className="rounded-lg bg-slate-100 p-4">
-              <p className="text-sm text-slate-500">Status</p>
-              <p className="text-xl font-bold capitalize">{draft?.status.replace("_", " ") ?? "Preseason"}</p>
-            </div>
-
-            <div className="rounded-lg bg-slate-100 p-4">
-              <p className="text-sm text-slate-500">Owners</p>
-              <p className="text-xl font-bold">{memberCount} / {league.owner_count}</p>
-            </div>
-
-            <div className="rounded-lg bg-slate-100 p-4">
-              <p className="text-sm text-slate-500">Teams Drafted</p>
-              <p className="text-xl font-bold">
-                {pickCount} / {league.owner_count * league.teams_per_owner}
-              </p>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Navigation Cards */}
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-
-          <div className="rounded-xl bg-white p-6 shadow">
-            <h3 className="mb-3 text-xl font-bold">🏆 League Management</h3>
-
-            <Button variant="primary" className="mb-2">
-              Create League
-            </Button>
-
-            <Button variant="secondary">
-              League Settings
-            </Button>
+            <p className="hidden text-sm text-slate-500 sm:block">Updated from your current league setup</p>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow">
-            <h3 className="mb-3 text-xl font-bold">👥 Owners</h3>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="absolute inset-y-0 left-0 w-1 bg-[#0b2b59]" aria-hidden="true" />
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Season</p>
+              <p className="mt-3 text-3xl font-black tracking-tight text-[#0b2b59]">{league.season}</p>
+              <p className="mt-2 text-sm text-slate-500">Official competition year</p>
+            </article>
 
-            <Button variant="success">
-              Manage Owners
-            </Button>
+            <article className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="absolute inset-y-0 left-0 w-1 bg-orange-500" aria-hidden="true" />
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">League Status</p>
+              <div className="mt-3 flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${draft?.status === "live" ? "animate-pulse bg-emerald-500" : "bg-orange-500"}`} aria-hidden="true" />
+                <p className="text-2xl font-black capitalize tracking-tight text-slate-950">{draftStatus}</p>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Current phase of league play</p>
+            </article>
+
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Owner Roster</p>
+                  <p className="mt-3 text-3xl font-black tracking-tight text-[#0b2b59]">{memberCount}<span className="text-lg text-slate-400">/{league.owner_count}</span></p>
+                </div>
+                <span className="rounded-lg bg-blue-50 px-2 py-1 text-xs font-bold text-blue-800">{Math.round(ownerProgress)}%</span>
+              </div>
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Owner roster completion" aria-valuemin={0} aria-valuemax={league.owner_count} aria-valuenow={memberCount}>
+                <div className="h-full rounded-full bg-[#0b2b59]" style={{ width: `${ownerProgress}%` }} />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Accepted league members</p>
+            </article>
+
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Draft Board</p>
+                  <p className="mt-3 text-3xl font-black tracking-tight text-[#0b2b59]">{pickCount}<span className="text-lg text-slate-400">/{totalPicks}</span></p>
+                </div>
+                <span className="rounded-lg bg-orange-50 px-2 py-1 text-xs font-bold text-orange-700">{Math.round(draftProgress)}%</span>
+              </div>
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Draft completion" aria-valuemin={0} aria-valuemax={totalPicks} aria-valuenow={pickCount}>
+                <div className="h-full rounded-full bg-orange-500" style={{ width: `${draftProgress}%` }} />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">College teams selected</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="mt-10" aria-labelledby="league-operations-title">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Quick access</p>
+            <h2 id="league-operations-title" className="mt-1 text-2xl font-black tracking-tight">League Operations</h2>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow">
-            <h3 className="mb-3 text-xl font-bold">🎯 Draft</h3>
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <article className={operationCardClass("league")}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-fit rounded-md bg-blue-50 px-2 py-1 text-xs font-black uppercase tracking-wider text-blue-800">League</span>
+                {operationsFocus === "league" ? <span className="text-[0.65rem] font-black uppercase tracking-widest text-orange-700">Up next</span> : null}
+              </div>
+              <h3 className="mt-4 text-lg font-black">League Management</h3>
+              <p className="mt-2 text-sm leading-5 text-slate-500">Manage the league framework and season configuration.</p>
+              <div className="mt-auto space-y-2 pt-5">
+                <Button variant="primary">Create League</Button>
+                <Button variant="secondary">League Settings</Button>
+              </div>
+            </article>
 
-            {draft && draft.status !== "not_started" ? (
-              <Link href={`/draft/${draft.id}`} className="block rounded-lg bg-orange-500 px-4 py-2 text-center font-semibold text-white transition hover:bg-orange-600">Draft Room</Link>
-            ) : (
-              <Button variant="sports" disabled>Draft Room</Button>
-            )}
+            <article className={operationCardClass("owners")}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-black uppercase tracking-wider text-slate-700">Roster</span>
+                {operationsFocus === "owners" ? <span className="text-[0.65rem] font-black uppercase tracking-widest text-orange-700">Needs attention</span> : null}
+              </div>
+              <h3 className="mt-4 text-lg font-black">Owners</h3>
+              <p className="mt-2 text-sm leading-5 text-slate-500">Invite owners, track open spots, and manage pending invitations.</p>
+              <a href="#owner-management" className="mt-auto block rounded-lg bg-slate-800 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">Manage Owners</a>
+            </article>
+
+            <article className={operationCardClass("results")}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-fit rounded-md bg-emerald-50 px-2 py-1 text-xs font-black uppercase tracking-wider text-emerald-800">Results</span>
+                {operationsFocus === "results" ? <span className="text-[0.65rem] font-black uppercase tracking-widest text-orange-700">Current focus</span> : null}
+              </div>
+              <h3 className="mt-4 text-lg font-black">Season Results</h3>
+              <p className="mt-2 text-sm leading-5 text-slate-500">Review the league table and your team&apos;s scoring breakdown.</p>
+              <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
+                <Link href={`/league/${league.id}/standings`} className="rounded-lg bg-[#0b2b59] px-3 py-2.5 text-center text-sm font-bold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">Standings</Link>
+                <Link href={`/league/${league.id}/score`} className="rounded-lg bg-slate-100 px-3 py-2.5 text-center text-sm font-bold text-slate-800 transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">My Score</Link>
+              </div>
+            </article>
+
+            <article className={operationCardClass("admin")}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-fit rounded-md bg-red-50 px-2 py-1 text-xs font-black uppercase tracking-wider text-red-800">Admin</span>
+                {operationsFocus === "admin" ? <span className="text-[0.65rem] font-black uppercase tracking-widest text-orange-700">In season</span> : null}
+              </div>
+              <h3 className="mt-4 text-lg font-black">Scoring Administration</h3>
+              <p className="mt-2 text-sm leading-5 text-slate-500">Sync game data, review outcomes, and process official league scoring.</p>
+              <Link href="/commissioner/scoring" className="mt-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-center text-sm font-bold text-red-800 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2">Open Scoring</Link>
+            </article>
           </div>
+        </section>
 
-          <div className="rounded-xl bg-white p-6 shadow">
-            <h3 className="mb-3 text-xl font-bold">📊 Results</h3>
-            <div className="space-y-2">
-              <Link href={`/league/${league.id}/standings`} className="block rounded-lg bg-purple-600 px-4 py-2 text-center font-semibold text-white transition hover:bg-purple-700">Standings</Link>
-              <Link href={`/league/${league.id}/score`} className="block rounded-lg bg-green-700 px-4 py-2 text-center font-semibold text-white transition hover:bg-green-800">My Score</Link>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-white p-6 shadow">
-            <h3 className="mb-3 text-xl font-bold">⚙ Administration</h3>
-            <Link href="/commissioner/scoring" className="block rounded-lg bg-red-600 px-4 py-2 text-center font-semibold text-white transition hover:bg-red-700">Scoring</Link>
-          </div>
-
-        </div>
-
-        {roster && siteOrigin && (
+        {roster && siteOrigin ? (
           <OwnerManagement
             leagueId={league.id}
             ownerCount={league.owner_count}
@@ -133,9 +253,9 @@ export default function CommissionerDashboard({ league, roster, draft = null, pa
             invitations={roster.invitations}
             siteOrigin={siteOrigin}
           />
-        )}
+        ) : null}
 
-        {roster && (
+        {roster ? (
           <DraftSetup
             leagueId={league.id}
             ownerCount={league.owner_count}
@@ -145,14 +265,13 @@ export default function CommissionerDashboard({ league, roster, draft = null, pa
             draft={draft}
             participants={participants}
           />
-        )}
+        ) : null}
 
-        {roster && activeInvitations.length > 0 && (
-          <p className="mt-4 text-sm text-slate-500">
-            {activeInvitations.length} roster spot{activeInvitations.length === 1 ? " is" : "s are"} reserved by pending invitations.
+        {roster && activeInvitations.length > 0 ? (
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+            {activeInvitations.length} roster spot{activeInvitations.length === 1 ? " is" : "s are"} currently reserved by pending invitations.
           </p>
-        )}
-
+        ) : null}
       </div>
     </main>
   );

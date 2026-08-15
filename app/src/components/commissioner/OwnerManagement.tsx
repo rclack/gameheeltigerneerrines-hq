@@ -27,7 +27,7 @@ function CopyInviteButton({ token, siteOrigin }: { token: string; siteOrigin: st
   }
 
   return (
-    <button type="button" onClick={copyLink} className="text-sm font-semibold text-blue-600 hover:text-blue-800">
+    <button type="button" onClick={copyLink} className="rounded text-sm font-bold text-blue-700 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">
       {copied ? "Copied!" : "Copy Invite Link"}
     </button>
   );
@@ -48,7 +48,7 @@ function RevokeButton({ invitationId }: { invitationId: string }) {
 
   return (
     <div className="text-right">
-      <button type="button" disabled={pending} onClick={revoke} className="text-sm font-semibold text-red-600 hover:text-red-800 disabled:opacity-50">
+      <button type="button" disabled={pending} onClick={revoke} className="rounded text-sm font-bold text-red-700 hover:text-red-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:opacity-50">
         {pending ? "Revoking…" : "Revoke"}
       </button>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
@@ -57,6 +57,7 @@ function RevokeButton({ invitationId }: { invitationId: string }) {
 }
 
 export default function OwnerManagement({ leagueId, ownerCount, members, invitations, siteOrigin }: OwnerManagementProps) {
+  const [managing, setManaging] = useState(false);
   const inviteOwnerForLeague = inviteOwner.bind(null, leagueId);
   const [state, formAction, pending] = useActionState(inviteOwnerForLeague, initialState);
   const activeInvitations = invitations.filter(
@@ -69,62 +70,113 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
   const isFull = occupiedSlots >= ownerCount;
 
   return (
-    <section className="mt-8 grid gap-6 lg:grid-cols-2">
-      <div className="rounded-xl bg-white p-6 shadow">
-        <h2 className="text-2xl font-bold">Active Members</h2>
-        <p className="mt-1 text-sm text-slate-500">{members.length} accepted of {ownerCount} roster spots</p>
-        <div className="mt-5 space-y-3">
+    <section id="owner-management" className="mt-10 scroll-mt-6" aria-labelledby="owner-management-title">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Owner roster</p>
+            <h2 id="owner-management-title" className="mt-1 text-2xl font-black tracking-tight">{members.length} of {ownerCount} Owners Confirmed</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              {activeInvitations.length > 0
+                ? `${activeInvitations.length} invitation${activeInvitations.length === 1 ? "" : "s"} pending · ${Math.max(ownerCount - occupiedSlots, 0)} spots open`
+                : `${Math.max(ownerCount - occupiedSlots, 0)} roster spot${Math.max(ownerCount - occupiedSlots, 0) === 1 ? "" : "s"} available`}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex -space-x-2" aria-label={`${members.length} confirmed owners`}>
+              {members.slice(0, 6).map((member) => (
+                <span key={member.id} title={member.profile?.display_name ?? "League member"} className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#0b2b59] text-xs font-black text-white shadow-sm">
+                  {(member.profile?.display_name ?? "L").charAt(0).toUpperCase()}
+                </span>
+              ))}
+              {members.length > 6 ? <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-xs font-black text-slate-700">+{members.length - 6}</span> : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setManaging((current) => !current)}
+              aria-expanded={managing}
+              aria-controls="owner-management-controls"
+              className="rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2"
+            >
+              {managing ? "Close Owner Management" : "Manage Owners"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {managing ? (
+      <div id="owner-management-controls" className="mt-4 grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-2 lg:divide-x lg:divide-slate-200">
+        <div className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-950">Active Members</h3>
+              <p className="mt-1 text-sm text-slate-500">Confirmed owners with access to the league</p>
+            </div>
+            <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-sm font-black text-blue-800">{members.length}/{ownerCount}</span>
+          </div>
+          <div className="mt-5 space-y-2">
           {members.map((member) => (
-            <div key={member.id} className="flex items-center justify-between rounded-lg bg-slate-100 p-4">
-              <div>
-                <p className="font-semibold">{member.profile?.display_name ?? "League member"}</p>
-                <p className="text-sm capitalize text-slate-500">{member.role}</p>
+            <div key={member.id} className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 transition hover:border-slate-300">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0b2b59] text-sm font-black text-white">
+                  {(member.profile?.display_name ?? "L").charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-slate-900">{member.profile?.display_name ?? "League member"}</p>
+                  <p className="text-xs font-semibold capitalize text-slate-500">{member.role}</p>
+                </div>
               </div>
-              {member.team_name && <p className="text-sm text-slate-600">{member.team_name}</p>}
+              {member.team_name ? <p className="truncate text-right text-sm font-semibold text-slate-600">{member.team_name}</p> : null}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="rounded-xl bg-white p-6 shadow">
-        <h2 className="text-2xl font-bold">Invite Owners</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          {activeInvitations.length} pending · {Math.max(ownerCount - occupiedSlots, 0)} spots available
-        </p>
+        <div className="border-t border-slate-200 p-5 sm:p-6 lg:border-t-0">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-950">Recruit Owners</h3>
+              <p className="mt-1 text-sm text-slate-500">Send secure invitations to fill the remaining roster</p>
+            </div>
+            <span className="shrink-0 rounded-lg bg-orange-50 px-2.5 py-1 text-sm font-black text-orange-700">{Math.max(ownerCount - occupiedSlots, 0)} open</span>
+          </div>
 
         <form action={formAction} className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <label htmlFor="owner-invite-email" className="sr-only">Owner email address</label>
           <input
+            id="owner-invite-email"
             type="email"
             name="email"
             required
             disabled={isFull || pending}
             placeholder="owner@example.com"
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 outline-none focus:border-blue-500 disabled:bg-slate-100"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
           />
-          <Button className="sm:w-auto" type="submit" variant="success" disabled={isFull || pending}>
+          <Button className="sm:w-auto" type="submit" variant="sports" disabled={isFull || pending}>
             {pending ? "Inviting…" : "Invite Owner"}
           </Button>
         </form>
 
-        {isFull && <p className="mt-3 text-sm text-amber-700">All roster spots are accepted or reserved by pending invitations.</p>}
-        {state.error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{state.error}</p>}
+        {isFull ? <p className="mt-3 text-sm font-medium text-amber-800">All roster spots are accepted or reserved by pending invitations.</p> : null}
+        {state.error ? <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{state.error}</p> : null}
         {state.success && (
-          <div role="status" className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          <div role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
             <p>{state.success}</p>
             {state.invitationToken && <CopyInviteButton token={state.invitationToken} siteOrigin={siteOrigin} />}
           </div>
         )}
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-3 border-t border-slate-200 pt-5">
           {activeInvitations.length === 0 ? (
-            <p className="text-sm text-slate-500">No pending invitations.</p>
+            <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">No pending invitations. Your recruiting board is clear.</p>
           ) : activeInvitations.map((invitation) => {
             const invitePath = `/invite/${encodeURIComponent(invitation.invitation_token)}`;
             const inviteUrl = `${siteOrigin}${invitePath}`;
             const subject = encodeURIComponent("Join my GameHeelTigerNeerRines HQ league");
             const body = encodeURIComponent(`Use this invitation link to join: ${inviteUrl}`);
             return (
-              <div key={invitation.id} className="rounded-lg border border-slate-200 p-4">
+              <div key={invitation.id} className="rounded-xl border border-slate-200 p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{invitation.invited_email}</p>
@@ -138,7 +190,7 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
                     Email Link
                   </a>
                 </div>
-                <p className="mt-2 truncate rounded bg-slate-50 px-2 py-1 font-mono text-xs text-slate-500">
+                <p className="mt-2 truncate rounded bg-slate-100 px-2 py-1.5 font-mono text-xs text-slate-500">
                   {inviteUrl}
                 </p>
               </div>
@@ -148,7 +200,7 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
 
         {invitationHistory.length > 0 && (
           <details className="mt-5 border-t border-slate-200 pt-4">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-600">
+            <summary className="cursor-pointer rounded text-sm font-bold text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">
               Invitation history ({invitationHistory.length})
             </summary>
             <div className="mt-3 space-y-2">
@@ -164,7 +216,9 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
             </div>
           </details>
         )}
+        </div>
       </div>
+      ) : null}
     </section>
   );
 }
