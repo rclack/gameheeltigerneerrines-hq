@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { getGameScoringState } from "../../src/lib/cfbd/scoringState.ts";
 import { authoritativeSourceAt, buildRankingSnapshots, canAutomateRankingSnapshot, getCfpFirstRankingsAt, normalizeRankingSource } from "../../src/lib/cfbd/rankings.ts";
+import { parseCfbdRankings } from "../../src/lib/cfbd/normalization.ts";
 import type { CfbdRankingWeek, NormalizedCfbdGame } from "../../src/lib/cfbd/types.ts";
 
 const cutoff = new Date("2026-11-03T23:00:00Z");
@@ -53,11 +54,52 @@ test("missing applicable poll is distinct from an explicit null unranked snapsho
   assert.deepEqual(result.missing, [{ external_id: "game-1", source: "AP Top 25" }]);
 });
 
+test("Coaches-only rankings leave context unavailable without blocking schedule preparation", () => {
+  const coachesOnly: CfbdRankingWeek[] = [{
+    season: 2026,
+    seasonType: "regular",
+    week: 1,
+    polls: [{ poll: "Coaches Poll", ranks: [{ rank: 1, school: "Alabama" }] }],
+  }];
+  const result = buildRankingSnapshots([baseGame], prepared, coachesOnly, cutoff);
+  assert.deepEqual(result, {
+    snapshots: [],
+    missing: [{ external_id: "game-1", source: "AP Top 25" }],
+  });
+});
+
+test("a later AP publication populates future snapshots without substituting Coaches", () => {
+  const coachesThenAp: CfbdRankingWeek[] = [{
+    season: 2026,
+    seasonType: "regular",
+    week: 10,
+    polls: [
+      { poll: "Coaches Poll", ranks: [{ rank: 2, school: "Alabama" }, { rank: 5, school: "Air Force" }] },
+      { poll: "AP Top 25", ranks: [{ rank: 1, school: "Alabama" }] },
+    ],
+  }];
+  const result = buildRankingSnapshots([baseGame], prepared, coachesThenAp, cutoff);
+  assert.equal(result.snapshots.length, 1);
+  assert.equal(result.snapshots[0].ranking_source, "AP Top 25");
+  assert.equal(result.snapshots[0].away_rank, 1);
+  assert.equal(result.snapshots[0].home_rank, null);
+  assert.equal(result.missing.length, 0);
+});
+
 test("poll aliases normalize defensively and unknown names are rejected", () => {
   assert.equal(normalizeRankingSource("Associated Press Top 25"), "AP Top 25");
   assert.equal(normalizeRankingSource("Playoff Committee Rankings"), "CFP");
   assert.equal(normalizeRankingSource("Coaches Poll"), null);
-  assert.throws(() => buildRankingSnapshots([baseGame], prepared, [], cutoff), /recognized AP Top 25/);
+  assert.throws(
+    () => buildRankingSnapshots([baseGame], prepared, [{ season: 2026, seasonType: "regular", week: 10, polls: [{ poll: "AP Media Ranking", ranks: [] }] }], cutoff),
+    /unrecognized AP Top 25-like poll name/,
+  );
+});
+
+test("malformed ranking responses still fail validation", () => {
+  assert.throws(() => parseCfbdRankings({}), /not an array/);
+  assert.throws(() => parseCfbdRankings([{ season: 2026, seasonType: "regular", week: 1 }]), /missing polls/);
+  assert.throws(() => parseCfbdRankings([{ season: 2026, seasonType: "regular", week: 1, polls: [{ poll: "Coaches Poll" }] }]), /missing ranks/);
 });
 
 test("CFP cutoff configuration requires a verified timezone-aware season value", () => {

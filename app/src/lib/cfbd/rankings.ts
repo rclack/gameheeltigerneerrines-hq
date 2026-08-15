@@ -20,6 +20,12 @@ function normalizedPollName(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function resemblesAuthoritativeSource(pollName: string, source: AuthoritativeRankingSource) {
+  const normalized = normalizedPollName(pollName);
+  if (source === "AP Top 25") return /(^| )ap( |$)/.test(normalized) || normalized.includes("associated press");
+  return /(^| )cfp( |$)/.test(normalized) || normalized.includes("college football playoff") || normalized.includes("playoff committee");
+}
+
 export function normalizeRankingSource(pollName: string): AuthoritativeRankingSource | null {
   const normalized = normalizedPollName(pollName);
   if (AP_NAMES.has(normalized)) return "AP Top 25";
@@ -54,7 +60,14 @@ function applicablePoll(weeks: CfbdRankingWeek[], game: NormalizedCfbdGame, sour
   const candidates = weeks.flatMap((rankingWeek) => rankingWeek.polls
     .filter((poll) => normalizeRankingSource(poll.poll) === source)
     .map((poll) => ({ rankingWeek, poll })));
-  if (!candidates.length) throw new Error(`CFBD rankings did not contain a recognized ${source} poll.`);
+  if (!candidates.length) {
+    const suspiciousName = weeks
+      .filter((rankingWeek) => String(rankingWeek.season) === game.season)
+      .flatMap((rankingWeek) => rankingWeek.polls)
+      .find((poll) => resemblesAuthoritativeSource(poll.poll, source))?.poll;
+    if (suspiciousName) throw new Error(`CFBD returned an unrecognized ${source}-like poll name: ${suspiciousName}.`);
+    return null;
+  }
 
   const sameSeason = candidates.filter(({ rankingWeek }) => String(rankingWeek.season) === game.season);
   const eligible = sameSeason.filter(({ rankingWeek }) => {
