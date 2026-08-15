@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { setDraftPausedAction } from "@/app/commissioner/draft-actions";
 import { submitPickAction } from "@/app/draft/[draftId]/actions";
 import { addQueueTeamAction, moveQueueTeamAction, removeQueueTeamAction } from "@/app/draft/[draftId]/queue-actions";
+import CompletedDraftResults from "@/components/draft/CompletedDraftResults";
 import { createClient } from "@/lib/supabase/client";
 import type { DraftRoomData } from "@/services/draftService";
 
@@ -40,6 +41,8 @@ export default function DraftRoom({ data }: { data: DraftRoomData }) {
   const turnKey = `${data.draft.current_round}-${data.draft.current_pick}`;
 
   useEffect(() => {
+    if (data.draft.status === "complete") return;
+
     const supabase = createClient();
     const refresh = () => router.refresh();
     const channel = supabase.channel(`draft-${data.draft.id}`)
@@ -49,7 +52,7 @@ export default function DraftRoom({ data }: { data: DraftRoomData }) {
       .subscribe();
     const poll = window.setInterval(refresh, 5000);
     return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
-  }, [data.draft.id, router]);
+  }, [data.draft.id, data.draft.status, router]);
 
   useEffect(() => {
     if (previousStatus.current !== "complete" && data.draft.status === "complete") setCompleting(true);
@@ -87,13 +90,17 @@ export default function DraftRoom({ data }: { data: DraftRoomData }) {
 
   function dismissQueuePrompt() { setDismissedTurn(turnKey); }
 
-  const recentPicks = data.draft.status === "complete" ? [...data.picks].reverse() : [...data.picks].reverse().slice(0, 8);
+  if (data.draft.status === "complete") {
+    return <CompletedDraftResults data={data} returningToLeague={completing} />;
+  }
+
+  const recentPicks = [...data.picks].reverse().slice(0, 8);
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 bg-blue-950"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center"><div><Link href={`/league/${data.league.id}`} className="text-sm text-blue-300 hover:text-blue-200">← League Home</Link><h1 className="text-2xl font-black sm:text-3xl">{data.league.name} Draft Room</h1></div><div className="flex items-center gap-3"><span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-bold capitalize">{data.draft.status.replace("_", " ")}</span>{isCommissioner && data.draft.status === "live" && <button disabled={actionPending} onClick={() => togglePause(true)} className="rounded-lg bg-red-600 px-3 py-2 text-sm font-bold">Pause</button>}{isCommissioner && data.draft.status === "paused" && <button disabled={actionPending} onClick={() => togglePause(false)} className="rounded-lg bg-green-600 px-3 py-2 text-sm font-bold">Resume</button>}</div></div></header>
 
-      <section className={`${isMyTurn ? "bg-orange-500 text-slate-950" : "bg-slate-900"} border-b border-slate-800`}><div className="mx-auto max-w-7xl px-4 py-4"><p className="text-xs font-black uppercase tracking-[0.2em]">{data.draft.status === "complete" ? "Draft Complete" : data.draft.status === "paused" ? "Draft Paused" : "On The Clock"}</p><div className="mt-1 flex flex-col justify-between gap-2 sm:flex-row sm:items-end"><div><p className="text-2xl font-black">{currentParticipant?.profile?.display_name ?? "—"}</p><p className={isMyTurn ? "font-semibold" : "text-slate-400"}>{isMyTurn ? "Your pick — choose a team below" : currentParticipant?.member.team_name ?? "Waiting for the next selection"}</p></div><p className="font-mono text-lg font-bold">Round {data.draft.current_round} · Position {data.draft.current_pick}</p></div></div></section>
+      <section className={`${isMyTurn ? "bg-orange-500 text-slate-950" : "bg-slate-900"} border-b border-slate-800`}><div className="mx-auto max-w-7xl px-4 py-4"><p className="text-xs font-black uppercase tracking-[0.2em]">{data.draft.status === "paused" ? "Draft Paused" : "On The Clock"}</p><div className="mt-1 flex flex-col justify-between gap-2 sm:flex-row sm:items-end"><div><p className="text-2xl font-black">{currentParticipant?.profile?.display_name ?? "—"}</p><p className={isMyTurn ? "font-semibold" : "text-slate-400"}>{isMyTurn ? "Your pick — choose a team below" : currentParticipant?.member.team_name ?? "Waiting for the next selection"}</p></div><p className="font-mono text-lg font-bold">Round {data.draft.current_round} · Position {data.draft.current_pick}</p></div></div></section>
 
       {completing && <div role="status" className="bg-green-600 px-4 py-3 text-center font-bold">Draft complete! Returning to your {isCommissioner ? "commissioner portal" : "league"}…</div>}
 
@@ -102,7 +109,7 @@ export default function DraftRoom({ data }: { data: DraftRoomData }) {
       {(message || error) && <div className="mx-auto max-w-7xl px-4 pt-4">{message && <p className="rounded-lg bg-green-950 p-3 text-green-200">{message}</p>}{error && <p role="alert" className="rounded-lg bg-red-950 p-3 text-red-200">{error}</p>}</div>}
 
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_280px]">
-        <aside className="order-4 rounded-xl border border-slate-800 bg-slate-900 p-4 lg:order-1 lg:row-span-2"><h2 className="font-black uppercase tracking-wide text-slate-300">Draft Order</h2><div className="mt-3 space-y-2">{data.participants.map((participant) => <div key={participant.id} className={`${participant.draft_position === data.draft.current_pick && data.draft.status !== "complete" ? "border-orange-500 bg-orange-500/10" : "border-slate-800"} rounded-lg border p-2.5`}><div className="flex gap-2"><span className="font-mono font-black text-slate-500">{participant.draft_position}</span><div className="min-w-0"><p className={`${participant.member.user_id === data.currentUserId ? "text-orange-400" : ""} truncate text-sm font-bold`}>{participant.profile?.display_name ?? "Owner"}{participant.member.user_id === data.currentUserId ? " (You)" : ""}</p><p className="truncate text-xs text-slate-500">{participant.member.team_name ?? "Unnamed"}</p></div></div></div>)}</div></aside>
+        <aside className="order-4 rounded-xl border border-slate-800 bg-slate-900 p-4 lg:order-1 lg:row-span-2"><h2 className="font-black uppercase tracking-wide text-slate-300">Draft Order</h2><div className="mt-3 space-y-2">{data.participants.map((participant) => <div key={participant.id} className={`${participant.draft_position === data.draft.current_pick ? "border-orange-500 bg-orange-500/10" : "border-slate-800"} rounded-lg border p-2.5`}><div className="flex gap-2"><span className="font-mono font-black text-slate-500">{participant.draft_position}</span><div className="min-w-0"><p className={`${participant.member.user_id === data.currentUserId ? "text-orange-400" : ""} truncate text-sm font-bold`}>{participant.profile?.display_name ?? "Owner"}{participant.member.user_id === data.currentUserId ? " (You)" : ""}</p><p className="truncate text-xs text-slate-500">{participant.member.team_name ?? "Unnamed"}</p></div></div></div>)}</div></aside>
 
         <section className="order-2 rounded-xl border border-slate-800 bg-slate-900 p-4 lg:order-2"><div className="flex items-center justify-between"><div><h2 className="font-black uppercase tracking-wide text-orange-400">My Queue</h2><p className="text-xs text-slate-500">Private preference list</p></div><span className="rounded-full bg-slate-800 px-2 py-1 text-xs font-bold">{activeQueue.length}</span></div><div className="mt-3 space-y-2">{activeQueue.length ? activeQueue.map((item, index) => <div key={item.id} className="flex items-center gap-2 rounded-lg bg-slate-950 p-2.5"><span className="w-5 font-mono text-sm font-black text-orange-400">{index + 1}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{item.team.school_name}</p><p className="text-xs text-slate-500">{item.team.conference}</p></div>{mutationsEnabled && <div className="flex gap-1"><button aria-label={`Move ${item.team.school_name} up`} disabled={index === 0 || queuePending !== null} onClick={() => updateQueue(item.id, () => moveQueueTeamAction(data.draft.id, item.id, -1))} className="rounded bg-slate-800 px-2 py-1 text-xs disabled:opacity-30">↑</button><button aria-label={`Move ${item.team.school_name} down`} disabled={index === activeQueue.length - 1 || queuePending !== null} onClick={() => updateQueue(item.id, () => moveQueueTeamAction(data.draft.id, item.id, 1))} className="rounded bg-slate-800 px-2 py-1 text-xs disabled:opacity-30">↓</button><button aria-label={`Remove ${item.team.school_name}`} disabled={queuePending !== null} onClick={() => updateQueue(item.id, () => removeQueueTeamAction(data.draft.id, item.id))} className="rounded bg-red-950 px-2 py-1 text-xs text-red-300">×</button></div>}</div>) : <p className="text-sm text-slate-500">Add available teams below to build your preference list.</p>}</div></section>
 
