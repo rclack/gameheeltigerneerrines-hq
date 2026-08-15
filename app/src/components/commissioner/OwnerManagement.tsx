@@ -2,7 +2,12 @@
 
 import { useActionState, useState } from "react";
 
-import { inviteOwner, revokeOwnerInvitation, type InvitationActionState } from "@/app/commissioner/actions";
+import {
+  inviteOwner,
+  resendOwnerInvitationEmail,
+  revokeOwnerInvitation,
+  type InvitationActionState,
+} from "@/app/commissioner/actions";
 import Button from "@/components/ui/Button";
 import type { LeagueInvitation } from "@/types/database";
 import type { MemberWithProfile } from "@/services/membershipService";
@@ -52,6 +57,40 @@ function RevokeButton({ invitationId }: { invitationId: string }) {
         {pending ? "Revoking…" : "Revoke"}
       </button>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function RetryInvitationEmailButton({ invitationId }: { invitationId: string }) {
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<{ error?: string; success?: string }>({});
+
+  async function retryEmail() {
+    if (pending) return;
+    setPending(true);
+    setMessage({});
+    try {
+      const result = await resendOwnerInvitationEmail(invitationId);
+      setMessage(result);
+    } catch {
+      setMessage({ error: "The invitation email could not be sent. Try again later." });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={retryEmail}
+        className="rounded text-sm font-bold text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:opacity-50"
+      >
+        {pending ? "Sending…" : "Retry Email"}
+      </button>
+      {message.error ? <p role="alert" className="mt-1 text-xs text-red-600">{message.error}</p> : null}
+      {message.success ? <p role="status" className="mt-1 text-xs text-emerald-700">{message.success}</p> : null}
     </div>
   );
 }
@@ -161,8 +200,12 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
         {isFull ? <p className="mt-3 text-sm font-medium text-amber-800">All roster spots are accepted or reserved by pending invitations.</p> : null}
         {state.error ? <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{state.error}</p> : null}
         {state.success && (
-          <div role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          <div
+            role="status"
+            className={`mt-3 rounded-lg border p-3 text-sm ${state.emailError ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}
+          >
             <p>{state.success}</p>
+            {state.emailError ? <p role="alert" className="mt-2 font-semibold">{state.emailError}</p> : null}
             {state.invitationToken && <CopyInviteButton token={state.invitationToken} siteOrigin={siteOrigin} />}
           </div>
         )}
@@ -173,8 +216,6 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
           ) : activeInvitations.map((invitation) => {
             const invitePath = `/invite/${encodeURIComponent(invitation.invitation_token)}`;
             const inviteUrl = `${siteOrigin}${invitePath}`;
-            const subject = encodeURIComponent("Join my GameHeelTigerNeerRines HQ league");
-            const body = encodeURIComponent(`Use this invitation link to join: ${inviteUrl}`);
             return (
               <div key={invitation.id} className="rounded-xl border border-slate-200 p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
@@ -186,12 +227,10 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
                 </div>
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
                   <CopyInviteButton token={invitation.invitation_token} siteOrigin={siteOrigin} />
-                  <a className="rounded text-sm font-bold text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2" href={`mailto:${invitation.invited_email}?subject=${subject}&body=${body}`}>
-                    Compose Email
-                  </a>
+                  <RetryInvitationEmailButton invitationId={invitation.id} />
                 </div>
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Compose Email opens your configured mail app; Copy Invite Link is the reliable manual option.
+                  Email delivery is server-side. Copy Invite Link remains the reliable manual fallback.
                 </p>
                 <p className="mt-2 truncate rounded bg-slate-100 px-2 py-1.5 font-mono text-xs text-slate-500">
                   {inviteUrl}

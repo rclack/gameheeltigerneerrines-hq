@@ -1,0 +1,63 @@
+import "server-only";
+
+import {
+  buildLeagueInvitationEmail,
+  type LeagueInvitationEmailInput,
+} from "@/lib/email/leagueInvitationEmail";
+
+const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
+const INVITATION_FROM = "GameHeelTigerNeerRines HQ <invites@gameheeltigerneerrines.com>";
+
+interface SendLeagueInvitationInput extends LeagueInvitationEmailInput {
+  invitationId: string;
+  to: string;
+}
+
+export class InvitationEmailDeliveryError extends Error {
+  constructor() {
+    super("League invitation email delivery failed");
+    this.name = "InvitationEmailDeliveryError";
+  }
+}
+
+export async function sendLeagueInvitationEmail(input: SendLeagueInvitationInput) {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) throw new InvitationEmailDeliveryError();
+
+  const email = buildLeagueInvitationEmail(input);
+  let response: Response;
+
+  try {
+    response = await fetch(RESEND_EMAILS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": `league-invitation/${input.invitationId}/v1`,
+      },
+      body: JSON.stringify({
+        from: INVITATION_FROM,
+        to: [input.to],
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    throw new InvitationEmailDeliveryError();
+  }
+
+  if (!response.ok) throw new InvitationEmailDeliveryError();
+
+  const result: unknown = await response.json().catch(() => null);
+  if (
+    typeof result !== "object"
+    || result === null
+    || !("id" in result)
+    || typeof result.id !== "string"
+  ) {
+    throw new InvitationEmailDeliveryError();
+  }
+}
