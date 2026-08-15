@@ -35,11 +35,13 @@ In **Project Settings → Environment Variables**, add these values before the f
 | `NEXT_PUBLIC_SUPABASE_URL` | Public browser configuration | Production; Preview if previews will be tested | Existing Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public browser configuration | Production; Preview if previews will be tested | Existing Supabase publishable key |
 | `CFBD_API_KEY` | Secret | Production; Preview only if provider testing is intended there | Server-only CFBD access |
-| `NEXT_PUBLIC_SITE_URL` | Public, recommended | Production | Canonical deployed origin, such as `https://your-project.vercel.app` |
+| `NEXT_PUBLIC_SITE_URL` | Public, recommended | Production | Canonical deployed origin: `https://gameheeltigerneerrines.com` |
 
 `SUPABASE_SERVICE_ROLE_KEY` is not used by the production application and must not be added to Vercel. It is required only by disposable local integration harnesses.
 
-The application resolves its public origin in this order:
+In a Vercel Production deployment, the application always uses
+`https://gameheeltigerneerrines.com` as its public origin. Outside Vercel
+Production, it resolves its public origin in this order:
 
 1. `NEXT_PUBLIC_SITE_URL`;
 2. Vercel's system-provided `VERCEL_URL`; and
@@ -55,7 +57,7 @@ Never create `NEXT_PUBLIC_CFBD_API_KEY`.
 2. Wait for the build and deployment checks to finish.
 3. Record the stable production URL shown by Vercel, for example:
 
-   `https://your-project.vercel.app`
+   `https://gameheeltigerneerrines.com`
 
 4. In Vercel, set `NEXT_PUBLIC_SITE_URL` for **Production** to that exact origin if it was not known before the first build.
 5. Redeploy the same Git commit so invitation and signup confirmation links use the canonical production origin.
@@ -70,11 +72,11 @@ Vercel deployment does not update Supabase automatically.
 2. Go to **Authentication → URL Configuration**.
 3. Set **Site URL** to the exact production origin:
 
-   `https://your-project.vercel.app`
+   `https://gameheeltigerneerrines.com`
 
 4. Add this exact production redirect URL to **Redirect URLs**:
 
-   `https://your-project.vercel.app/auth/callback`
+   `https://gameheeltigerneerrines.com/auth/callback`
 
 5. Keep these local entries if local development should continue:
 
@@ -83,7 +85,16 @@ Vercel deployment does not update Supabase automatically.
 
 6. Save the configuration.
 
-When a custom domain is added in a future milestone, add its exact `/auth/callback` URL and make it the Site URL before changing `NEXT_PUBLIC_SITE_URL`. Do not remove the working Vercel callback until the custom-domain transition is verified.
+The Supabase **Confirm signup** email template must send the signed token hash to
+the application callback so confirmation does not depend on the browser that
+started signup. Set its confirmation link to:
+
+```html
+<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup">Confirm email address</a>
+```
+
+`RedirectTo` already contains `/auth/callback?next=...`, so the template uses
+`&token_hash=...` rather than starting another query string.
 
 ### Optional preview strategy
 

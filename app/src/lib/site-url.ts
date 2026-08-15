@@ -1,5 +1,7 @@
 import "server-only";
 
+const CANONICAL_PRODUCTION_ORIGIN = "https://gameheeltigerneerrines.com";
+
 function validOrigin(value: string | undefined, defaultProtocol?: "https:") {
   if (!value) return null;
   const candidate = defaultProtocol && !value.includes("://") ? `${defaultProtocol}//${value}` : value;
@@ -14,6 +16,8 @@ function validOrigin(value: string | undefined, defaultProtocol?: "https:") {
 }
 
 export function getSiteOrigin() {
+  if (process.env.VERCEL_ENV === "production") return CANONICAL_PRODUCTION_ORIGIN;
+
   return validOrigin(process.env.NEXT_PUBLIC_SITE_URL)
     ?? validOrigin(process.env.VERCEL_URL, "https:")
     ?? "http://localhost:3000";
