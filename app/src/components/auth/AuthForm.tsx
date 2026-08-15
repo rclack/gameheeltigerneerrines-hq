@@ -15,6 +15,7 @@ interface AuthFormProps {
   mode: AuthMode;
   nextPath?: string;
   siteOrigin: string;
+  notice?: string;
 }
 
 function friendlyAuthError(message: string) {
@@ -26,7 +27,7 @@ function friendlyAuthError(message: string) {
   return "Authentication failed. Please try again.";
 }
 
-export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin }: AuthFormProps) {
+export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin, notice }: AuthFormProps) {
   const router = useRouter();
   const isSignup = mode === "signup";
   const [displayName, setDisplayName] = useState("");
@@ -145,6 +146,17 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin }: Au
               />
             </label>
 
+            {!isSignup ? (
+              <div className="-mt-3 text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-semibold text-blue-400 transition hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            ) : null}
+
             {isSignup && (
               <label className="block space-y-2 text-sm font-semibold text-slate-300">
                 Confirm password
@@ -160,6 +172,7 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin }: Au
               </label>
             )}
 
+            {notice ? <p role="status" className="rounded-lg bg-green-950/70 p-3 text-sm text-green-200">{notice}</p> : null}
             {error && <p role="alert" className="rounded-lg bg-red-950/70 p-3 text-sm text-red-200">{error}</p>}
             {message && <p role="status" className="rounded-lg bg-green-950/70 p-3 text-sm text-green-200">{message}</p>}
 
