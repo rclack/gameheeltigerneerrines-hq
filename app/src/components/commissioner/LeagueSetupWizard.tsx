@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import WelcomeStep from "./league-setup/WelcomeStep";
 
@@ -12,14 +13,14 @@ import ReviewStep from "./league-setup/ReviewStep";
 
 import { createLeague } from "@/services/leagueService";
 import { createClient } from "@/lib/supabase/client";
-import type { League } from "@/types/database";
-import CommissionerDashboard from "./CommissionerDashboard";
 
 interface LeagueSetupWizardProps {
   userId: string;
 }
 
 export default function LeagueSetupWizard({ userId }: LeagueSetupWizardProps) {
+  const router = useRouter();
+  const [isRefreshing, startRefreshTransition] = useTransition();
   const [step, setStep] = useState(1);
   const [leagueName, setLeagueName] = useState("");
   const [season, setSeason] = useState("2026");
@@ -27,7 +28,6 @@ export default function LeagueSetupWizard({ userId }: LeagueSetupWizardProps) {
   const [teamsPerOwner, setTeamsPerOwner] = useState("6");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdLeague, setCreatedLeague] = useState<League | null>(null);
 
 async function handleCreateLeague() {
   if (isSubmitting) return;
@@ -42,7 +42,7 @@ async function handleCreateLeague() {
   setIsSubmitting(true);
 
   try {
-    const league = await createLeague(createClient(), {
+    await createLeague(createClient(), {
       name: trimmedName,
       commissioner_id: userId,
       season,
@@ -50,7 +50,7 @@ async function handleCreateLeague() {
       teams_per_owner: Number(teamsPerOwner),
     });
 
-    setCreatedLeague(league);
+    startRefreshTransition(() => router.refresh());
   } catch (caughtError) {
     const message = caughtError instanceof Error ? caughtError.message : "Unknown error";
     setError(
@@ -62,8 +62,6 @@ async function handleCreateLeague() {
     setIsSubmitting(false);
   }
 }
-
-  if (createdLeague) return <CommissionerDashboard league={createdLeague} />;
 
   if (step === 1) {
     return (
@@ -107,7 +105,7 @@ if (step === 4) {
   teamsPerOwner={teamsPerOwner}
   onBack={() => setStep(3)}
   onCreateLeague={handleCreateLeague}
-  isSubmitting={isSubmitting}
+  isSubmitting={isSubmitting || isRefreshing}
   error={error}
 />
   );
