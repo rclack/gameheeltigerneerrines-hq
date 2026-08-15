@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import AuthenticatedAccountMenu from "@/components/auth/AuthenticatedAccountMenu";
+import SiteFooter from "@/components/SiteFooter";
 import { createClient } from "@/lib/supabase/server";
 
 import "./globals.css";
@@ -53,6 +54,7 @@ export default async function RootLayout({
           />
         ) : null}
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
