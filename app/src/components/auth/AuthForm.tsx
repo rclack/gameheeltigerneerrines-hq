@@ -26,7 +26,7 @@ function friendlyAuthError(message: string) {
   return "Authentication failed. Please try again.";
 }
 
-export default function AuthForm({ mode, nextPath = "/commissioner", siteOrigin }: AuthFormProps) {
+export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin }: AuthFormProps) {
   const router = useRouter();
   const isSignup = mode === "signup";
   const [displayName, setDisplayName] = useState("");
@@ -105,7 +105,7 @@ export default function AuthForm({ mode, nextPath = "/commissioner", siteOrigin 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-950 to-slate-900 px-4 py-12">
       <div className="w-full max-w-md">
-        <Card title={isSignup ? "Create your account" : "Commissioner Login"}>
+        <Card title={isSignup ? "Create your account" : "Sign In"}>
           <form className="space-y-5" onSubmit={handleSubmit}>
             {isSignup && (
               <label className="block space-y-2 text-sm font-semibold text-slate-300">

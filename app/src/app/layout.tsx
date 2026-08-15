@@ -28,6 +28,14 @@ export default async function RootLayout({
 }>) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const { data: memberships } = user
+    ? await supabase
+        .from("league_members")
+        .select("role")
+        .eq("user_id", user.id)
+    : { data: null };
+  const leagueCount = memberships?.length ?? 0;
+  const hasCommissionerLeague = memberships?.some((membership) => membership.role === "commissioner") ?? false;
 
   return (
     <html
@@ -35,7 +43,15 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {user ? <AuthenticatedAccountMenu key={user.id} userId={user.id} email={user.email ?? "Signed-in account"} /> : null}
+        {user ? (
+          <AuthenticatedAccountMenu
+            key={user.id}
+            userId={user.id}
+            email={user.email ?? "Signed-in account"}
+            leagueCount={leagueCount}
+            hasCommissionerLeague={hasCommissionerLeague}
+          />
+        ) : null}
         {children}
       </body>
     </html>

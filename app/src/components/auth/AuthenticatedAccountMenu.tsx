@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -10,6 +11,8 @@ import { createClient } from "@/lib/supabase/client";
 interface AuthenticatedAccountMenuProps {
   userId: string;
   email: string;
+  leagueCount: number;
+  hasCommissionerLeague: boolean;
 }
 
 function getInitials(email: string) {
@@ -38,14 +41,19 @@ function SignOutButton() {
   );
 }
 
-export default function AuthenticatedAccountMenu({ userId, email }: AuthenticatedAccountMenuProps) {
+export default function AuthenticatedAccountMenu({
+  userId,
+  email,
+  leagueCount,
+  hasCommissionerLeague,
+}: AuthenticatedAccountMenuProps) {
   const router = useRouter();
   const [supabase] = useState(createClient);
   const [isOpen, setIsOpen] = useState(false);
   const [sessionIsCurrent, setSessionIsCurrent] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const signOutRef = useRef<HTMLFormElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const identityRefreshStartedRef = useRef(false);
 
   useEffect(() => {
@@ -110,7 +118,7 @@ export default function AuthenticatedAccountMenu({ userId, email }: Authenticate
 
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
-    signOutRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus();
 
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
@@ -137,6 +145,7 @@ export default function AuthenticatedAccountMenu({ userId, email }: Authenticate
 
       {isOpen ? (
         <div
+          ref={menuRef}
           id="authenticated-account-menu"
           role="menu"
           aria-label="Account options"
@@ -146,7 +155,27 @@ export default function AuthenticatedAccountMenu({ userId, email }: Authenticate
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Signed in as</p>
             <p className="mt-1 truncate text-sm font-semibold" title={email}>{email}</p>
           </div>
-          <form ref={signOutRef} action={signOut} role="presentation" className="mt-3 border-t border-slate-200 pt-3">
+          <div role="presentation" className="mt-3 space-y-1 border-t border-slate-200 pt-3">
+            <Link
+              href="/leagues"
+              role="menuitem"
+              onClick={() => setIsOpen(false)}
+              className="block rounded-lg px-3 py-2 text-sm font-bold text-[#0b2b59] transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            >
+              {leagueCount === 1 ? "My League" : "My Leagues"}
+            </Link>
+            {hasCommissionerLeague ? (
+              <Link
+                href="/commissioner"
+                role="menuitem"
+                onClick={() => setIsOpen(false)}
+                className="block rounded-lg px-3 py-2 text-sm font-bold text-[#0b2b59] transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              >
+                Commissioner HQ
+              </Link>
+            ) : null}
+          </div>
+          <form action={signOut} role="presentation" className="mt-2 border-t border-slate-200 pt-3">
             <SignOutButton />
           </form>
         </div>
