@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { addManualEventAction, saveGameAction, scoreGameAction, syncCfbdScheduleAction, testCfbdConnectionAction, voidManualEventAction } from "@/app/commissioner/scoring/actions";
@@ -59,6 +60,7 @@ function summaryNumber(syncRun: ExternalSyncRun, key: string) {
 }
 
 export default function ScoringDashboard({ league, rules, events, games, standings, draftedTeams, teams, cfbdConfiguration, syncRuns }: Props) {
+  const router = useRouter();
   const manualRules = rules.filter((rule) => rule.category !== "game_result");
   const [manual, setManual] = useState({ teamId: draftedTeams[0]?.team.id ?? "", ruleId: manualRules[0]?.id ?? "", week: "", eventDate: new Date().toISOString().slice(0, 10), notes: "" });
   const [confirmingManual, setConfirmingManual] = useState(false);
@@ -80,6 +82,7 @@ export default function ScoringDashboard({ league, rules, events, games, standin
     setPending(true); setError(null); setMessage(null);
     const result = await action();
     setError(result.error ?? null); setMessage(result.success ?? null); setPending(false);
+    if (!result.error) router.refresh();
     return result;
   }
 
