@@ -14,6 +14,7 @@ test("favorite team is an account preference, independent of league membership",
 test("saving, changing, and clearing require an authenticated owner and active catalog team", () => {
   assert.match(actions, /if \(!user\) return \{ error: "Sign in and try again\." \}/);
   assert.match(actions, /from\("teams"\)[\s\S]*eq\("active", true\)/);
-  assert.match(actions, /String\(formData\.get\("favoriteTeamId"\)[\s\S]*\|\| null/);
+  assert.match(actions, /formData\.get\("favoriteTeamIntent"\) === "clear"/);
+  assert.match(actions, /shouldClear \? null : String\(formData\.get\("favoriteTeamId"\)[\s\S]*\|\| null/);
   assert.match(actions, /revalidatePath\(`\/league\/\$\{leagueId\}`\)/);
 });

@@ -81,7 +81,7 @@ export default function FavoriteTeamSelector({
         {selected && <p className="rounded-lg bg-slate-100 p-3 text-sm"><span className="font-black">Ready to save:</span> {selected.school_name}</p>}
         <div className="grid grid-cols-2 gap-2">
           <Button type="submit" disabled={pending || selectedId === favoriteTeamId}>{pending ? "Saving…" : "Save Favorite"}</Button>
-          <button type="submit" name="favoriteTeamId" value="" onClick={() => setSelectedId("")} disabled={pending || !favoriteTeamId} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">Use Default</button>
+          <button type="submit" name="favoriteTeamIntent" value="clear" onClick={() => setSelectedId("")} disabled={pending || !favoriteTeamId} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">Use Default</button>
         </div>
         {state.error && <p className="text-sm font-semibold text-red-700">{state.error}</p>}
         {state.success && <p className="text-sm font-semibold text-green-700">{state.success}</p>}

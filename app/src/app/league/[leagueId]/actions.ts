@@ -32,7 +32,8 @@ export async function updateFavoriteTeam(
   _state: FavoriteTeamState,
   formData: FormData,
 ): Promise<FavoriteTeamState> {
-  const teamId = String(formData.get("favoriteTeamId") ?? "").trim() || null;
+  const shouldClear = formData.get("favoriteTeamIntent") === "clear";
+  const teamId = shouldClear ? null : String(formData.get("favoriteTeamId") ?? "").trim() || null;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Sign in and try again." };
