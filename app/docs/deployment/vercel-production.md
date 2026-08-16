@@ -23,7 +23,7 @@ Do not paste secret values into source files, GitHub issues, screenshots, or cha
 6. Leave **Build Command** at the Next.js default (`npm run build`).
 7. Leave **Output Directory** at the Next.js default. Do not enter `.next` manually.
 8. Leave **Development Command** at the default.
-9. Do not add `vercel.json`.
+9. Keep the committed `vercel.json`; it contains only the production CFBD cron schedules.
 10. Use Vercel's current default Node.js version supported by Next.js 16. No project override is required.
 
 ## 2. Add Vercel environment variables
@@ -35,9 +35,35 @@ In **Project Settings → Environment Variables**, add these values before the f
 | `NEXT_PUBLIC_SUPABASE_URL` | Public browser configuration | Production; Preview if previews will be tested | Existing Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public browser configuration | Production; Preview if previews will be tested | Existing Supabase publishable key |
 | `CFBD_API_KEY` | Secret | Production; Preview only if provider testing is intended there | Server-only CFBD access |
+| `SUPABASE_CRON_SECRET_KEY` | Secret | Production only | Dedicated named Supabase `sb_secret_...` key for scheduled CFBD synchronization |
+| `CRON_SECRET` | Secret | Production only | High-entropy bearer secret automatically sent by Vercel Cron |
+| `CFBD_CRON_LEAGUE_IDS` | Sensitive server configuration | Production only | Comma-separated UUIDs of the leagues scheduled for synchronization |
 | `NEXT_PUBLIC_SITE_URL` | Public, recommended | Production | Canonical deployed origin: `https://gameheeltigerneerrines.com` |
 
-`SUPABASE_SERVICE_ROLE_KEY` is not used by the production application and must not be added to Vercel. It is required only by disposable local integration harnesses.
+`SUPABASE_SERVICE_ROLE_KEY` is not used by the production application and must not be added to Vercel. It is required only by disposable local integration harnesses. Scheduled synchronization instead uses a dedicated, independently rotatable modern Supabase Secret Key named for the cron service and stored only as `SUPABASE_CRON_SECRET_KEY`.
+
+Never prefix the cron key, cron bearer secret, or league scope with `NEXT_PUBLIC_`. Do not print them in logs, return them from API routes, expose them through `/api/health`, or place them in source control.
+
+### Scheduled CFBD synchronization
+
+1. In Supabase **Settings → API Keys**, create a dedicated named Secret Key for the production CFBD cron service. It must begin with `sb_secret_`; do not substitute the legacy `service_role` JWT.
+2. Add that value to Vercel Production as `SUPABASE_CRON_SECRET_KEY` with sensitive-value protection enabled.
+3. Generate a separate high-entropy value and add it to Vercel Production as `CRON_SECRET`. Vercel sends it as `Authorization: Bearer ...` when invoking the cron route.
+4. Add the approved production league UUIDs to `CFBD_CRON_LEAGUE_IDS`. This fixed server-side scope is the only league input accepted by the cron route.
+5. Redeploy after setting all three values. Preview deployments should not receive these variables or execute production cron jobs.
+
+The committed schedule runs daily at 11:00 UTC and adds a second Saturday run at 21:00 UTC. This stays within the two-job/daily-frequency Vercel Hobby limits while providing additional game-day coverage. Both invocations call `/api/cron/cfbd-sync`, which reuses the existing CFBD sync service, audit rows, failure recording, manual-override protection, and idempotent import RPCs. It never processes scoring.
+
+The database wrappers used by this route are executable only by Supabase's elevated `service_role`, which is the Postgres role assigned to modern Secret Keys. They bind only the configured league's commissioner context before invoking the existing sync RPC chain. A league-level overlap guard rejects concurrent runs and closes stale runs older than 45 minutes as failed audit entries.
+
+To rotate the Supabase cron key:
+
+1. Create a new named Secret Key in Supabase without deleting the old key.
+2. Replace `SUPABASE_CRON_SECRET_KEY` in Vercel Production and redeploy.
+3. Verify one authorized cron invocation and its sync audit entry.
+4. Delete the old Supabase Secret Key only after the new deployment is verified.
+
+Rotate `CRON_SECRET` separately by replacing it in Vercel and redeploying. Never include either old or new values in tickets, chat, documentation, screenshots, or command output.
 
 In a Vercel Production deployment, the application always uses
 `https://gameheeltigerneerrines.com` as its public origin. Outside Vercel
@@ -111,9 +137,11 @@ Avoid a broad wildcard preview redirect unless the team explicitly accepts the l
 - [ ] Root Directory is `app`.
 - [ ] Framework Preset is Next.js.
 - [ ] Install, build, and output settings use Vercel defaults.
-- [ ] The three required runtime variables are configured.
+- [ ] The public application variables and server-only CFBD variables are configured.
 - [ ] `NEXT_PUBLIC_SITE_URL` contains the exact stable production origin.
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` is absent from Vercel.
+- [ ] `SUPABASE_CRON_SECRET_KEY`, `CRON_SECRET`, and `CFBD_CRON_LEAGUE_IDS` exist only in Vercel Production.
+- [ ] The Supabase cron key is a dedicated named `sb_secret_...` key and is not exposed by `/api/health`.
 - [ ] Supabase Site URL is the exact production origin.
 - [ ] Supabase allows the exact production `/auth/callback` URL.
 - [ ] The production deployment was rebuilt after its canonical URL was configured.

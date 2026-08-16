@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/cron/cfbd-sync", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/cfbd-sync", "schedule": "0 21 * * 6" }
+  ]
+}

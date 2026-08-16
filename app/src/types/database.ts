@@ -263,6 +263,11 @@ export type Database = {
       save_external_team_mappings: { Args: { target_league_id: string; target_provider: string; target_mappings: Json }; Returns: number };
       apply_external_game_sync: { Args: { target_sync_run_id: string; target_games: Json; target_external_opponents: Json; target_mapping_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
       apply_cfb_ranking_snapshot_sync: { Args: { target_sync_run_id: string; target_snapshots: Json; target_missing_count: number }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
+      scheduled_begin_external_sync: { Args: { target_league_id: string; target_provider: string; target_sync_type: string }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
+      scheduled_fail_external_sync: { Args: { target_sync_run_id: string; target_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
+      scheduled_save_external_team_mappings: { Args: { target_league_id: string; target_provider: string; target_mappings: Json }; Returns: number };
+      scheduled_apply_external_game_sync: { Args: { target_sync_run_id: string; target_games: Json; target_external_opponents: Json; target_mapping_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
+      scheduled_apply_cfb_ranking_snapshot_sync: { Args: { target_sync_run_id: string; target_snapshots: Json; target_missing_count: number }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";
