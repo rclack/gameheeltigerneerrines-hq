@@ -26,6 +26,16 @@ test("current CFBD image objects are normalized to a trusted HTTPS logo", () => 
   assert.deepEqual(team.logos, ["https://a.espncdn.com/i/teamlogos/test.png"]);
 });
 
+test("official CFBD relative logo paths are normalized to the canonical HTTPS host", () => {
+  const [team] = parseCfbdTeams([{ id: 2579, school: "South Carolina", images: ["/api/logos/48/2579.png"] }]);
+  assert.deepEqual(team.logos, ["https://collegefootballdata.com/api/logos/48/2579.png"]);
+});
+
+test("official CFBD absolute logo URLs remain supported", () => {
+  const [team] = parseCfbdTeams([{ id: 2579, school: "South Carolina", images: ["https://collegefootballdata.com/api/logos/48/2579.png"] }]);
+  assert.deepEqual(team.logos, ["https://collegefootballdata.com/api/logos/48/2579.png"]);
+});
+
 test("legacy logo strings remain supported", () => {
   const [team] = parseCfbdTeams([{ id: 1, school: "Test State", logos: ["https://a1.espncdn.com/i/teamlogos/legacy.png"] }]);
   assert.deepEqual(team.logos, ["https://a1.espncdn.com/i/teamlogos/legacy.png"]);
@@ -41,11 +51,15 @@ test("multiple candidates prefer a primary/default and larger image", () => {
   assert.equal(logos[1], "https://a.espncdn.com/i/teamlogos/large.png");
 });
 
-test("malformed, non-HTTPS, and untrusted image URLs are rejected", () => {
+test("wrong CFBD paths, arbitrary hosts, malformed, and non-HTTPS URLs are rejected", () => {
   assert.deepEqual(normalizeCfbdTeamImages([
     { href: "not a url" },
     { href: "http://a.espncdn.com/i/teamlogos/insecure.png" },
     { href: "https://example.com/logo.png" },
+    { href: "https://collegefootballdata.com/teams/2579.png" },
+    { href: "/api/logos/48/../2579.png" },
+    { href: "javascript:alert(1)" },
+    { href: "data:image/png;base64,AAAA" },
   ]), []);
 });
 

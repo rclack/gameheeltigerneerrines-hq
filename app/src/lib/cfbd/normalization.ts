@@ -1,4 +1,5 @@
 import type { CfbdGame, CfbdRankingWeek, CfbdTeam, InternalGameStatus, NormalizedCfbdGame } from "./types.ts";
+import { trustedTeamLogoUrl } from "../team-logo.ts";
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("CFBD returned a malformed record.");
@@ -17,8 +18,6 @@ function requiredNumber(value: unknown, field: string) {
 function nullableNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
-
-const TRUSTED_LOGO_HOSTS = new Set(["a.espncdn.com", "a1.espncdn.com"]);
 
 function logoCandidate(value: unknown, index: number) {
   if (typeof value === "string") return { url: value, score: -index };
@@ -41,14 +40,8 @@ export function normalizeCfbdTeamImages(...collections: unknown[]): string[] {
   const valid = candidates.flatMap((value, index) => {
     const candidate = logoCandidate(value, index);
     if (!candidate) return [];
-    try {
-      const parsed = new URL(candidate.url);
-      return parsed.protocol === "https:" && TRUSTED_LOGO_HOSTS.has(parsed.hostname)
-        ? [{ ...candidate, url: parsed.toString() }]
-        : [];
-    } catch {
-      return [];
-    }
+    const url = trustedTeamLogoUrl(candidate.url);
+    return url ? [{ ...candidate, url }] : [];
   });
   valid.sort((left, right) => right.score - left.score);
   return [...new Set(valid.map((candidate) => candidate.url))];

@@ -1,4 +1,5 @@
 import type { CfbdTeam, NormalizedCfbdGame } from "./types.ts";
+import { trustedTeamLogoUrl } from "../team-logo.ts";
 
 export interface InternalTeamIdentity { id: string; school_name: string; short_name: string; abbreviation: string }
 export interface PersistedMapping { team_id: string; external_team_id: string; external_name: string }
@@ -12,12 +13,8 @@ function validHex(value?: string | null) {
 
 function validLogo(logos: string[]) {
   for (const logo of logos) {
-    try {
-      const parsed = new URL(logo);
-      if (parsed.protocol === "https:" && ["a.espncdn.com", "a1.espncdn.com"].includes(parsed.hostname)) return parsed.toString();
-    } catch {
-      // Ignore malformed provider assets and preserve the initials fallback.
-    }
+    const trusted = trustedTeamLogoUrl(logo);
+    if (trusted) return trusted;
   }
   return null;
 }

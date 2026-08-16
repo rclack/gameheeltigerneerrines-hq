@@ -1,4 +1,5 @@
 import type { Team } from "@/types/database";
+import { trustedTeamLogoUrl } from "../team-logo.ts";
 
 export interface FavoriteTeamTheme {
   primary: string;
@@ -45,13 +46,7 @@ function darken(hex: string, amount = 0.34) {
 }
 
 export function safeTeamLogoUrl(url: string | null | undefined) {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" && ["a.espncdn.com", "a1.espncdn.com"].includes(parsed.hostname) ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
+  return trustedTeamLogoUrl(url);
 }
 
 export function favoriteTeamTheme(team: Team | null): FavoriteTeamTheme {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { contrastRatio, favoriteTeamTheme, readableForeground } from "../../src/lib/league/favorite-team-theme.ts";
+import { contrastRatio, favoriteTeamTheme, readableForeground, safeTeamLogoUrl } from "../../src/lib/league/favorite-team-theme.ts";
 import type { Team } from "../../src/types/database.ts";
 
 function team(overrides: Partial<Team> = {}): Team {
@@ -32,4 +32,13 @@ test("favorite branding validates colors and provider logo hosts", () => {
   assert.equal(themed.foreground, "#0F172A");
   assert.equal(themed.logoUrl, "https://a.espncdn.com/i/team.png");
   assert.equal(favoriteTeamTheme(team({ logo_url: "https://example.com/logo.png" })).logoUrl, null);
+});
+
+test("shared logo validation mirrors the trusted CFBD and ESPN policy", () => {
+  assert.equal(safeTeamLogoUrl("https://collegefootballdata.com/api/logos/48/2579.png"), "https://collegefootballdata.com/api/logos/48/2579.png");
+  assert.equal(safeTeamLogoUrl("https://a.espncdn.com/i/teamlogos/test.png"), "https://a.espncdn.com/i/teamlogos/test.png");
+  assert.equal(safeTeamLogoUrl("https://collegefootballdata.com/api/teams/2579.png"), null);
+  assert.equal(safeTeamLogoUrl("http://collegefootballdata.com/api/logos/48/2579.png"), null);
+  assert.equal(safeTeamLogoUrl("https://example.com/api/logos/48/2579.png"), null);
+  assert.equal(safeTeamLogoUrl(null), null);
 });
