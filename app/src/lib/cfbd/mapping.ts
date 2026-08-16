@@ -14,10 +14,7 @@ function validLogo(logos: string[]) {
   for (const logo of logos) {
     try {
       const parsed = new URL(logo);
-      if (["http:", "https:"].includes(parsed.protocol) && ["a.espncdn.com", "a1.espncdn.com"].includes(parsed.hostname)) {
-        parsed.protocol = "https:";
-        return parsed.toString();
-      }
+      if (parsed.protocol === "https:" && ["a.espncdn.com", "a1.espncdn.com"].includes(parsed.hostname)) return parsed.toString();
     } catch {
       // Ignore malformed provider assets and preserve the initials fallback.
     }

@@ -18,6 +18,42 @@ function nullableNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+const TRUSTED_LOGO_HOSTS = new Set(["a.espncdn.com", "a1.espncdn.com"]);
+
+function logoCandidate(value: unknown, index: number) {
+  if (typeof value === "string") return { url: value, score: -index };
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const image = value as Record<string, unknown>;
+  const url = [image.href, image.url, image.src].find((candidate): candidate is string => typeof candidate === "string");
+  if (!url) return null;
+  const labels = [image.type, image.name, ...(Array.isArray(image.rel) ? image.rel : [])]
+    .filter((label): label is string => typeof label === "string")
+    .join(" ")
+    .toLowerCase();
+  const width = typeof image.width === "number" && Number.isFinite(image.width) ? image.width : 0;
+  const height = typeof image.height === "number" && Number.isFinite(image.height) ? image.height : 0;
+  const roleScore = labels.includes("primary") || labels.includes("default") ? 1_000_000 : labels.includes("full") || labels.includes("logo") ? 500_000 : 0;
+  return { url, score: roleScore + Math.min(width * height, 499_999) - index };
+}
+
+export function normalizeCfbdTeamImages(...collections: unknown[]): string[] {
+  const candidates = collections.flatMap((collection) => Array.isArray(collection) ? collection : []);
+  const valid = candidates.flatMap((value, index) => {
+    const candidate = logoCandidate(value, index);
+    if (!candidate) return [];
+    try {
+      const parsed = new URL(candidate.url);
+      return parsed.protocol === "https:" && TRUSTED_LOGO_HOSTS.has(parsed.hostname)
+        ? [{ ...candidate, url: parsed.toString() }]
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  valid.sort((left, right) => right.score - left.score);
+  return [...new Set(valid.map((candidate) => candidate.url))];
+}
+
 export function parseCfbdTeams(payload: unknown): CfbdTeam[] {
   if (!Array.isArray(payload)) throw new Error("CFBD teams response was not an array.");
   return payload.map((raw) => {
@@ -28,7 +64,7 @@ export function parseCfbdTeams(payload: unknown): CfbdTeam[] {
       abbreviation: typeof item.abbreviation === "string" ? item.abbreviation : null,
       color: typeof item.color === "string" ? item.color : null,
       alternateColor: typeof item.alternateColor === "string" ? item.alternateColor : null,
-      logos: Array.isArray(item.logos) ? item.logos.filter((logo): logo is string => typeof logo === "string") : [],
+      logos: normalizeCfbdTeamImages(item.images, item.logos),
     };
   });
 }
