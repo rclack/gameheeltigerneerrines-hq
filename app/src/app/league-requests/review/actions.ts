@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,5 +19,5 @@ export async function decideLeagueRequest(token: string, decision: "approve" | "
   }
   revalidatePath("/leagues");
   if (data) revalidatePath(`/commissioner/${data}`);
-  return decision === "approve" ? { success: "League approved and created.", leagueId: data ?? undefined } : { success: "League request denied. No league was created." };
+  redirect(`/league-requests/review/complete?decision=${decision}`);
 }
