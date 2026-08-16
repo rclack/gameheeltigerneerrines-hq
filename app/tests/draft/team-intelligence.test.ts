@@ -26,7 +26,17 @@ test("compact team cards expose factual details and preserve draft controls", ()
   assert.match(room, /<details className=/);
   assert.match(room, /Current \/ preseason AP/);
   assert.match(room, /priorSeason/);
-  assert.match(room, /\+ Queue/);
+  assert.match(room, /\+ Add to queue/);
   assert.match(room, /draftTeam\(team\.id\)/);
   assert.match(room, /disabled=\{!isMyTurn/);
+});
+
+test("draft-night hierarchy exposes turn, progress, newest pick, queue, and roster context", () => {
+  assert.match(room, /You are on the clock/);
+  assert.match(room, /aria-label="Draft progress"/);
+  assert.match(room, /Overall pick/);
+  assert.match(room, /Just drafted/);
+  assert.match(room, /top choice first/);
+  assert.match(room, /My Roster/);
+  assert.match(room, /href="#available-teams"/);
 });
