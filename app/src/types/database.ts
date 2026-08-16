@@ -268,6 +268,10 @@ export type Database = {
       scheduled_save_external_team_mappings: { Args: { target_league_id: string; target_provider: string; target_mappings: Json }; Returns: number };
       scheduled_apply_external_game_sync: { Args: { target_sync_run_id: string; target_games: Json; target_external_opponents: Json; target_mapping_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
       scheduled_apply_cfb_ranking_snapshot_sync: { Args: { target_sync_run_id: string; target_snapshots: Json; target_missing_count: number }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
+      get_draft_team_prior_records: {
+        Args: { target_league_id: string };
+        Returns: Array<{ team_id: string; season: string; wins: number; losses: number; ties: number }>;
+      };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";

@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import DraftRoom from "@/components/draft/DraftRoom";
 import { createClient } from "@/lib/supabase/server";
-import { getDraftParticipants, getDraftPicks, getMyDraftQueue } from "@/services/draftService";
+import { getDraftParticipants, getDraftPicks, getDraftTeamIntelligence, getMyDraftQueue } from "@/services/draftService";
 import { getLeagueRoster } from "@/services/membershipService";
 import { getActiveTeams } from "@/services/teamService";
 
@@ -23,8 +23,11 @@ export default async function DraftPage({ params }: { params: Promise<{ draftId:
     getDraftParticipants(supabase, draft.id, roster.members),
     getActiveTeams(supabase),
   ]);
-  const picks = await getDraftPicks(supabase, draft.id, participants, teams);
-  const queue = await getMyDraftQueue(supabase, draft.id, teams);
+  const [picks, queue, teamIntelligence] = await Promise.all([
+    getDraftPicks(supabase, draft.id, participants, teams),
+    getMyDraftQueue(supabase, draft.id, teams),
+    getDraftTeamIntelligence(supabase, league, teams),
+  ]);
 
-  return <DraftRoom data={{ draft, league, participants, picks, teams, currentUserId: user.id, queue }} />;
+  return <DraftRoom data={{ draft, league, participants, picks, teams, currentUserId: user.id, queue, teamIntelligence }} />;
 }

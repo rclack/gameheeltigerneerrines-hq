@@ -5,6 +5,12 @@ import type { Database, Draft, DraftPick, DraftQueueItem, DraftSlot, League, Lea
 export type DraftParticipant = DraftSlot & { member: LeagueMember; profile: Profile | null };
 export type DraftSelection = DraftPick & { team: Team; participant: DraftParticipant | null };
 export type DraftQueueSelection = DraftQueueItem & { team: Team };
+export interface DraftTeamIntelligence {
+  classification: "POWER" | "G5" | "INDEPENDENT" | null;
+  priorSeason: string;
+  priorRecord: { wins: number; losses: number; ties: number } | null;
+  apRank: number | null;
+}
 
 export interface DraftRoomData {
   draft: Draft;
@@ -14,6 +20,47 @@ export interface DraftRoomData {
   teams: Team[];
   currentUserId: string;
   queue: DraftQueueSelection[];
+  teamIntelligence: Record<string, DraftTeamIntelligence>;
+}
+
+export async function getDraftTeamIntelligence(
+  supabase: SupabaseClient<Database>,
+  league: League,
+  teams: Team[],
+) {
+  const priorSeason = String(Number(league.season) - 1);
+  const [classificationsResult, recordsResult, rankingsResult] = await Promise.all([
+    supabase.from("conference_classifications").select("conference,classification").eq("season", league.season),
+    supabase.rpc("get_draft_team_prior_records", { target_league_id: league.id }),
+    supabase.from("team_ranking_snapshots")
+      .select("team_id,rank,captured_at")
+      .eq("league_id", league.id)
+      .eq("season", league.season)
+      .eq("ranking_source", "AP Top 25")
+      .not("rank", "is", null)
+      .order("captured_at", { ascending: false }),
+  ]);
+  if (classificationsResult.error) throw classificationsResult.error;
+  if (recordsResult.error) throw recordsResult.error;
+  if (rankingsResult.error) throw rankingsResult.error;
+
+  const classificationByConference = new Map(classificationsResult.data.map((item) => [item.conference, item.classification]));
+  const recordByTeam = new Map(recordsResult.data.map((item) => [item.team_id, item]));
+  const rankByTeam = new Map<string, number>();
+  for (const item of rankingsResult.data) {
+    if (item.rank !== null && !rankByTeam.has(item.team_id)) rankByTeam.set(item.team_id, item.rank);
+  }
+
+  return Object.fromEntries(teams.map((team) => {
+    const record = recordByTeam.get(team.id);
+    const classification = classificationByConference.get(team.conference);
+    return [team.id, {
+      classification: classification === "POWER" || classification === "G5" || classification === "INDEPENDENT" ? classification : null,
+      priorSeason,
+      priorRecord: record ? { wins: record.wins, losses: record.losses, ties: record.ties } : null,
+      apRank: rankByTeam.get(team.id) ?? null,
+    } satisfies DraftTeamIntelligence];
+  }));
 }
 
 export async function getLeagueDraft(supabase: SupabaseClient<Database>, leagueId: string) {
