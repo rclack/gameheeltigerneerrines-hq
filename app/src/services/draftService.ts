@@ -123,6 +123,19 @@ export async function randomizeDraft(supabase: SupabaseClient<Database>, leagueI
   return data;
 }
 
+export async function saveManualDraftOrder(
+  supabase: SupabaseClient<Database>,
+  leagueId: string,
+  memberIds: string[],
+) {
+  const { data, error } = await supabase.rpc("set_manual_draft_order", {
+    target_league_id: leagueId,
+    target_member_ids: memberIds,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function startLeagueDraft(supabase: SupabaseClient<Database>, draftId: string) {
   const { data, error } = await supabase.rpc("start_draft", { target_draft_id: draftId });
   if (error) throw error;

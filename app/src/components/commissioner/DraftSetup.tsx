@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { randomizeOrder, resetDraftAction, setDraftPausedAction, startDraftAction } from "@/app/commissioner/draft-actions";
+import { randomizeOrder, resetDraftAction, saveManualDraftOrderAction, setDraftPausedAction, startDraftAction } from "@/app/commissioner/draft-actions";
 import Button from "@/components/ui/Button";
+import { isCompleteDraftOrder, mergeDraftOrder, moveDraftOrder } from "@/lib/draft/order";
 import type { Draft, LeagueInvitation } from "@/types/database";
 import type { DraftParticipant } from "@/services/draftService";
 import type { MemberWithProfile } from "@/services/membershipService";
@@ -20,13 +22,20 @@ interface DraftSetupProps {
 }
 
 export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, members, invitations, draft, participants }: DraftSetupProps) {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [editingManualOrder, setEditingManualOrder] = useState(false);
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
   const activeInvites = invitations.filter((invite) => invite.status === "pending" && new Date(invite.expires_at) > new Date());
   const ready = members.length === ownerCount && activeInvites.length === 0 && participants.length === ownerCount;
   const totalPicks = ownerCount * teamsPerOwner;
+  const acceptedMemberIds = members.map((member) => member.id);
+  const memberById = new Map(members.map((member) => [member.id, member]));
+  const savedOrderIds = participants.map((participant) => participant.league_member_id);
+  const manualOrderIsComplete = isCompleteDraftOrder(manualOrder, acceptedMemberIds, ownerCount);
   const boardStatus = draft?.status === "complete"
     ? "Draft complete"
     : draft?.status === "live"
@@ -37,11 +46,25 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
           ? "Ready to start"
           : "Setup in progress";
 
-  async function run(action: () => Promise<{ error?: string; success?: string; draftId?: string }>) {
+  async function run(
+    action: () => Promise<{ error?: string; success?: string; draftId?: string }>,
+    onSuccess?: () => void,
+  ) {
     if (pending) return;
     setPending(true); setError(null); setMessage(null);
     const result = await action();
     setError(result.error ?? null); setMessage(result.success ?? null); setPending(false);
+    if (!result.error) {
+      onSuccess?.();
+      router.refresh();
+    }
+  }
+
+  function beginManualOrder() {
+    setManualOrder(mergeDraftOrder(savedOrderIds, acceptedMemberIds));
+    setEditingManualOrder(true);
+    setError(null);
+    setMessage(null);
   }
 
   const resetDialog = confirmingReset && draft ? (
@@ -118,6 +141,42 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
       {members.length !== ownerCount ? <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900">Draft locked: {members.length} of {ownerCount} accepted members.</p> : null}
       {activeInvites.length > 0 ? <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900">Draft locked: {activeInvites.length} pending invitation{activeInvites.length === 1 ? "" : "s"} must be resolved.</p> : null}
 
+      {editingManualOrder ? (
+        <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-700">Manual order</p>
+            <h3 className="mt-1 text-lg font-black text-[#0b2b59]">Set Draft Order Manually</h3>
+            <p className="mt-1 text-sm text-slate-600">Move each accepted owner into a unique position. Position 1 picks first in round one.</p>
+          </div>
+
+          <ol className="mt-4 space-y-2">
+            {manualOrder.map((memberId, index) => {
+              const member = memberById.get(memberId);
+              if (!member) return null;
+              return (
+                <li key={memberId} className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0b2b59] font-mono text-sm font-black text-white" aria-label={`Draft position ${index + 1}`}>{index + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-slate-900">{member.profile?.display_name ?? "Owner"}</p>
+                    <p className="truncate text-sm text-slate-500">{member.team_name ?? "Team name not set"}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" disabled={pending || index === 0} onClick={() => setManualOrder((current) => moveDraftOrder(current, index, -1))} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40" aria-label={`Move ${member.profile?.display_name ?? "owner"} up`}>Move Up</button>
+                    <button type="button" disabled={pending || index === manualOrder.length - 1} onClick={() => setManualOrder((current) => moveDraftOrder(current, index, 1))} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40" aria-label={`Move ${member.profile?.display_name ?? "owner"} down`}>Move Down</button>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+
+          {!manualOrderIsComplete ? <p className="mt-3 text-sm font-medium text-amber-800">Every roster spot must have an accepted owner before this order can be saved.</p> : null}
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => setEditingManualOrder(false)}>Cancel</Button>
+            <Button className="sm:w-auto" variant="sports" disabled={pending || !manualOrderIsComplete} onClick={() => run(() => saveManualDraftOrderAction(leagueId, manualOrder), () => setEditingManualOrder(false))}>{pending ? "Saving…" : "Save Draft Order"}</Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-6">
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-sm font-black uppercase tracking-[0.14em] text-slate-700">Draft Order</h3>
@@ -136,7 +195,8 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
       <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:flex-wrap">
         {(!draft || draft.status === "not_started") && (
           <>
-            <Button className="sm:w-auto" disabled={pending || members.length === 0} onClick={() => run(() => randomizeOrder(leagueId))}>Randomize Draft Order</Button>
+            <Button className="sm:w-auto" disabled={pending || members.length === 0} onClick={() => run(() => randomizeOrder(leagueId), () => setEditingManualOrder(false))}>Randomize Draft Order</Button>
+            <Button className="sm:w-auto" variant="secondary" disabled={pending || members.length === 0} onClick={beginManualOrder}>Set Draft Order Manually</Button>
             <Button className="sm:w-auto" variant="sports" disabled={pending || !draft || !ready} onClick={() => draft && run(() => startDraftAction(leagueId, draft.id))}>Start Draft</Button>
           </>
         )}

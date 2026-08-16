@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
-import { pauseLeagueDraft, randomizeDraft, resetLeagueDraft, startLeagueDraft } from "@/services/draftService";
+import { pauseLeagueDraft, randomizeDraft, resetLeagueDraft, saveManualDraftOrder, startLeagueDraft } from "@/services/draftService";
 
 export interface DraftSetupState { error?: string; success?: string; draftId?: string }
 
@@ -19,10 +19,26 @@ function setupError(message: string) {
   if (message.includes("membership is incomplete")) return "Every roster spot must have an accepted member before the draft starts.";
   if (message.includes("Pending invitations")) return "Resolve all pending invitations before starting the draft.";
   if (message.includes("complete draft order")) return "Randomize the complete draft order first.";
+  if (message.includes("every accepted owner exactly once")) return "Assign every accepted owner exactly once before saving.";
   if (message.includes("Not enough active teams")) return "Seed enough active FBS teams before starting the draft.";
   if (message.includes("after the draft starts")) return "Draft order cannot be changed after the draft starts.";
   if (message.includes("status transition")) return "The draft cannot make that status change.";
   return "The draft action could not be completed.";
+}
+
+export async function saveManualDraftOrderAction(
+  leagueId: string,
+  memberIds: string[],
+): Promise<DraftSetupState> {
+  const authorized = await commissionerOwnsLeague(leagueId);
+  if (!authorized) return { error: "League not found or access denied." };
+  try {
+    const draftId = await saveManualDraftOrder(authorized.supabase, leagueId, memberIds);
+    revalidatePath("/commissioner");
+    return { success: "Manual draft order saved.", draftId };
+  } catch (error) {
+    return { error: setupError(error instanceof Error ? error.message : "") };
+  }
 }
 
 export async function randomizeOrder(leagueId: string): Promise<DraftSetupState> {

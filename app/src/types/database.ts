@@ -236,6 +236,7 @@ export type Database = {
         }>;
       };
       randomize_draft_order: { Args: { target_league_id: string }; Returns: string };
+      set_manual_draft_order: { Args: { target_league_id: string; target_member_ids: string[] }; Returns: string };
       reset_draft: { Args: { target_draft_id: string }; Returns: boolean };
       start_draft: { Args: { target_draft_id: string }; Returns: boolean };
       set_draft_paused: { Args: { target_draft_id: string; should_pause: boolean }; Returns: Database["public"]["Enums"]["draft_status"] };
