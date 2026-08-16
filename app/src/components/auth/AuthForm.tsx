@@ -47,7 +47,7 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin, noti
     const cleanName = displayName.trim();
 
     if (isSignup && cleanName.length < 2) {
-      setError("Display name must contain at least 2 characters.");
+      setError("Your name must contain at least 2 characters.");
       return;
     }
     if (!cleanEmail || !cleanEmail.includes("@")) {
@@ -112,7 +112,7 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin, noti
           <form className="space-y-5" onSubmit={handleSubmit}>
             {isSignup && (
               <label className="block space-y-2 text-sm font-semibold text-slate-300">
-                Display name
+                Your name
                 <input
                   autoComplete="name"
                   className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3 text-white outline-none focus:border-blue-500"
@@ -120,6 +120,9 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin, noti
                   onChange={(event) => setDisplayName(event.target.value)}
                   required
                 />
+                <span className="block text-xs font-normal leading-5 text-slate-400">
+                  Shown to league members. You’ll choose a separate pool team name after joining.
+                </span>
               </label>
             )}
 
