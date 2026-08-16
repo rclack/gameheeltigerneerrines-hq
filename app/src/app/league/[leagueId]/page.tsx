@@ -105,7 +105,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
             <h1 className="mt-1 text-2xl font-black sm:text-3xl">{league.name}</h1>
           </div>
           {league.commissioner_id === user.id && (
-            <Link href="/commissioner" className="rounded-lg bg-white px-4 py-2 text-center font-bold text-blue-950 transition hover:bg-blue-100">
+            <Link href={`/commissioner/${league.id}`} className="rounded-lg bg-white px-4 py-2 text-center font-bold text-blue-950 transition hover:bg-blue-100">
               Commissioner Admin
             </Link>
           )}

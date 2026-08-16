@@ -2,16 +2,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { retryLeagueRequestEmail } from "./actions";
 
 export default async function LeaguesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/leagues");
 
-  const { data: memberships, error: membershipsError } = await supabase
+  const [{ data: memberships, error: membershipsError }, { data: pendingRequest }] = await Promise.all([supabase
     .from("league_members")
     .select("league_id, role")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id), supabase.from("league_creation_requests").select("*").eq("requester_id", user.id).eq("status", "pending").gt("expires_at", new Date().toISOString()).maybeSingle()]);
 
   if (membershipsError) throw membershipsError;
 
@@ -70,7 +71,7 @@ export default async function LeaguesPage() {
                     </Link>
                     {isCommissioner ? (
                       <Link
-                        href="/commissioner"
+                        href={`/commissioner/${league.id}`}
                         className="flex-1 rounded-lg bg-orange-500 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
                       >
                         Commissioner HQ
@@ -88,14 +89,13 @@ export default async function LeaguesPage() {
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
               If a commissioner invited you, open the Join League link from your invitation email while signed in with the invited address.
             </p>
-            <Link
-              href="/commissioner"
-              className="mt-6 inline-block rounded-lg bg-orange-500 px-6 py-3 font-bold text-white transition hover:bg-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
-            >
-              Create a League →
-            </Link>
           </section>
         )}
+        <section className="mt-6 rounded-2xl border border-orange-200 bg-white p-6 shadow-sm" aria-labelledby="new-league-heading">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-700">League creation</p>
+          <h2 id="new-league-heading" className="mt-1 text-xl font-black text-[#0b2b59]">{pendingRequest ? "Pending Approval" : "Request New League"}</h2>
+          {pendingRequest ? <><p className="mt-2 text-sm leading-6 text-slate-600"><strong>{pendingRequest.proposed_name}</strong> is awaiting site-administrator review. No production league has been created.</p><dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3"><div><dt className="font-bold text-slate-500">Season</dt><dd>{pendingRequest.season}</dd></div><div><dt className="font-bold text-slate-500">Format</dt><dd>{pendingRequest.owner_count} owners · {pendingRequest.teams_per_owner} teams each</dd></div><div><dt className="font-bold text-slate-500">Notification</dt><dd className="capitalize">{pendingRequest.notification_status}</dd></div></dl>{pendingRequest.notification_status === "failed" ? <form action={async () => { "use server"; await retryLeagueRequestEmail(pendingRequest.id); }}><button type="submit" className="mt-4 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-orange-600">Retry Approval Email</button></form> : null}</> : <><p className="mt-2 text-sm leading-6 text-slate-600">Propose a league format and optional draft roster rules. The site administrator must approve it before the league exists.</p><Link href="/leagues/request" className="mt-4 inline-block rounded-lg bg-orange-500 px-5 py-2.5 font-bold text-white transition hover:bg-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2">Request New League →</Link></>}
+        </section>
       </div>
     </main>
   );

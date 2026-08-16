@@ -26,8 +26,8 @@ async function authorizedClient(leagueId: string) {
 }
 
 function refreshScoring(leagueId: string) {
-  revalidatePath("/commissioner");
-  revalidatePath("/commissioner/scoring");
+  revalidatePath(`/commissioner/${leagueId}`);
+  revalidatePath(`/commissioner/${leagueId}/scoring`);
   revalidatePath(`/league/${leagueId}`);
   revalidatePath(`/league/${leagueId}/standings`);
   revalidatePath(`/league/${leagueId}/score`);

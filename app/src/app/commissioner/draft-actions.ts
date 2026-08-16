@@ -39,7 +39,7 @@ export async function saveDraftRosterRulesAction(leagueId: string, slots: Roster
   }
   try {
     await saveDraftRosterRules(authorized.supabase, leagueId, slots);
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${leagueId}`);
     return { success: slots.length ? "Draft roster rules saved." : "Draft roster restrictions removed." };
   } catch (error) {
     return { error: setupError(error instanceof Error ? error.message : "") };
@@ -54,7 +54,7 @@ export async function saveManualDraftOrderAction(
   if (!authorized) return { error: "League not found or access denied." };
   try {
     const draftId = await saveManualDraftOrder(authorized.supabase, leagueId, memberIds);
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${leagueId}`);
     return { success: "Manual draft order saved.", draftId };
   } catch (error) {
     return { error: setupError(error instanceof Error ? error.message : "") };
@@ -66,7 +66,7 @@ export async function randomizeOrder(leagueId: string): Promise<DraftSetupState>
   if (!authorized) return { error: "League not found or access denied." };
   try {
     const draftId = await randomizeDraft(authorized.supabase, leagueId);
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${leagueId}`);
     return { success: "Draft order randomized.", draftId };
   } catch (error) {
     return { error: setupError(error instanceof Error ? error.message : "") };
@@ -78,7 +78,7 @@ export async function startDraftAction(leagueId: string, draftId: string): Promi
   if (!authorized) return { error: "League not found or access denied." };
   try {
     await startLeagueDraft(authorized.supabase, draftId);
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${leagueId}`);
     revalidatePath(`/draft/${draftId}`);
     return { success: "Draft started.", draftId };
   } catch (error) {
@@ -91,7 +91,7 @@ export async function setDraftPausedAction(leagueId: string, draftId: string, pa
   if (!authorized) return { error: "League not found or access denied." };
   try {
     await pauseLeagueDraft(authorized.supabase, draftId, paused);
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${leagueId}`);
     revalidatePath(`/draft/${draftId}`);
     return { success: paused ? "Draft paused." : "Draft resumed.", draftId };
   } catch (error) {
@@ -104,7 +104,7 @@ export async function resetDraftAction(leagueId: string, draftId: string): Promi
   if (!authorized) return { error: "League not found or access denied." };
   try {
     await resetLeagueDraft(authorized.supabase, draftId);
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${leagueId}`);
     revalidatePath(`/draft/${draftId}`);
     return { success: "Draft reset. The existing draft order was preserved.", draftId };
   } catch (error) {

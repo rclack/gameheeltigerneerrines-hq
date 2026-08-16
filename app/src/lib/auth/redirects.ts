@@ -4,9 +4,12 @@ const INVITATION_TOKEN_SEGMENT = "[0-9a-f]{64}";
 const SAFE_RETURN_PATHS = [
   /^\/leagues$/,
   /^\/commissioner(?:\/scoring)?$/,
+  new RegExp(`^/commissioner/${UUID_SEGMENT}(?:/scoring)?$`, "i"),
+  /^\/leagues\/request$/,
   new RegExp(`^/league/${UUID_SEGMENT}(?:/(?:score|standings))?$`, "i"),
   new RegExp(`^/draft/${UUID_SEGMENT}$`, "i"),
   new RegExp(`^/invite/${INVITATION_TOKEN_SEGMENT}$`, "i"),
+  new RegExp(`^/league-requests/review/(?:approve|deny)/${INVITATION_TOKEN_SEGMENT}$`, "i"),
 ];
 
 export function safeAuthReturnPath(value: string | null | undefined, fallback = "/leagues") {

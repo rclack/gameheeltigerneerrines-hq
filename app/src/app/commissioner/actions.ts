@@ -61,7 +61,7 @@ export async function inviteOwner(
 
   try {
     const invitation = await createInvitation(supabase, ownedLeague.id, email);
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${leagueId}`);
 
     try {
       await sendLeagueInvitationEmail({
@@ -172,7 +172,7 @@ export async function revokeOwnerInvitation(
   try {
     const revoked = await revokeInvitation(supabase, invitation.id);
     if (!revoked) return { error: "Only pending invitations can be revoked." };
-    revalidatePath("/commissioner");
+    revalidatePath(`/commissioner/${invitation.league_id}`);
     return { success: "Invitation revoked." };
   } catch {
     return { error: "The invitation could not be revoked. Please try again." };

@@ -71,7 +71,7 @@ export default function CommissionerDashboard({
         ? { message: "Review the saved order, then start the draft when every owner is ready.", href: "#draft-operations", label: "Review draft setup" }
         : !draftIsComplete
           ? { message: "The draft is underway. Monitor the room and keep picks moving.", href: `/draft/${draft.id}`, label: "Enter draft room" }
-          : { message: "Draft setup is complete. Schedule sync and scoring are your active season operations.", href: "/commissioner/scoring", label: "Open scoring desk" };
+          : { message: "Draft setup is complete. Schedule sync and scoring are your active season operations.", href: `/commissioner/${league.id}/scoring`, label: "Open scoring desk" };
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -285,7 +285,7 @@ export default function CommissionerDashboard({
               </div>
               <h3 className="mt-4 text-lg font-black">Scoring Administration</h3>
               <p className="mt-2 text-sm leading-5 text-slate-500">Sync game data, review outcomes, and process official league scoring.</p>
-              <Link href="/commissioner/scoring" className="mt-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-center text-sm font-bold text-red-800 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2">Open Scoring</Link>
+              <Link href={`/commissioner/${league.id}/scoring`} className="mt-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-center text-sm font-bold text-red-800 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2">Open Scoring</Link>
             </article>
           </div>
         </section>

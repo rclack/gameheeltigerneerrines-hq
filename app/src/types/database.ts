@@ -135,6 +135,12 @@ export type Database = {
         };
         Relationships: [];
       };
+      league_creation_requests: {
+        Row: { id: string; requester_id: string; requester_email: string; proposed_name: string; season: string; owner_count: number; teams_per_owner: number; roster_rules: Json; status: Database["public"]["Enums"]["league_creation_request_status"]; expires_at: string; approved_league_id: string | null; decided_at: string | null; decided_by: string | null; notification_status: "pending" | "sent" | "failed"; notification_version: number; notification_sent_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; requester_id: string; requester_email: string; proposed_name: string; season: string; owner_count: number; teams_per_owner: number; roster_rules?: Json; status?: Database["public"]["Enums"]["league_creation_request_status"]; expires_at: string; approved_league_id?: string | null; decided_at?: string | null; decided_by?: string | null; notification_status?: "pending" | "sent" | "failed"; notification_version?: number; notification_sent_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { requester_email?: string; proposed_name?: string; season?: string; owner_count?: number; teams_per_owner?: number; roster_rules?: Json; status?: Database["public"]["Enums"]["league_creation_request_status"]; expires_at?: string; approved_league_id?: string | null; decided_at?: string | null; decided_by?: string | null; notification_status?: "pending" | "sent" | "failed"; notification_version?: number; notification_sent_at?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       teams: {
         Row: { id: string; school_name: string; short_name: string; abbreviation: string; conference: string; logo_url: string | null; primary_color: string | null; secondary_color: string | null; active: boolean; created_at: string };
         Insert: { id?: string; school_name: string; short_name: string; abbreviation: string; conference: string; logo_url?: string | null; primary_color?: string | null; secondary_color?: string | null; active?: boolean; created_at?: string };
@@ -320,10 +326,16 @@ export type Database = {
       };
       set_sunday_recap_enabled: { Args: { target_league_id: string; should_enable: boolean }; Returns: Database["public"]["Tables"]["league_recap_settings"]["Row"] };
       create_weekly_recap_snapshot: { Args: { target_league_id: string; target_week: number }; Returns: Database["public"]["Tables"]["weekly_recap_snapshots"]["Row"][] };
+      create_league_creation_request: { Args: { target_name: string; target_season: string; target_owner_count: number; target_teams_per_owner: number; target_roster_rules: Json; target_approve_token_hash: string; target_deny_token_hash: string }; Returns: Database["public"]["Tables"]["league_creation_requests"]["Row"] };
+      rotate_league_creation_review_tokens: { Args: { target_request_id: string; target_approve_token_hash: string; target_deny_token_hash: string }; Returns: Database["public"]["Tables"]["league_creation_requests"]["Row"] };
+      mark_league_request_notification: { Args: { target_request_id: string; was_sent: boolean }; Returns: boolean };
+      inspect_league_creation_review: { Args: { target_token: string; target_decision: string }; Returns: Array<{ request_id: string; requester_email: string; requester_name: string; proposed_name: string; season: string; owner_count: number; teams_per_owner: number; roster_rules: Json; expires_at: string }> };
+      decide_league_creation_request: { Args: { target_token: string; target_decision: string }; Returns: string | null };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";
       league_invitation_status: "pending" | "accepted" | "revoked" | "expired";
+      league_creation_request_status: "pending" | "approved" | "denied" | "expired";
       draft_status: "not_started" | "live" | "paused" | "complete";
     };
     CompositeTypes: Record<string, never>;
@@ -335,6 +347,7 @@ export type League = Database["public"]["Tables"]["leagues"]["Row"];
 export type LeagueInsert = Database["public"]["Tables"]["leagues"]["Insert"];
 export type LeagueMember = Database["public"]["Tables"]["league_members"]["Row"];
 export type LeagueInvitation = Database["public"]["Tables"]["league_invitations"]["Row"];
+export type LeagueCreationRequest = Database["public"]["Tables"]["league_creation_requests"]["Row"];
 export type Team = Database["public"]["Tables"]["teams"]["Row"];
 export type Draft = Database["public"]["Tables"]["drafts"]["Row"];
 export type DraftSlot = Database["public"]["Tables"]["draft_slots"]["Row"];

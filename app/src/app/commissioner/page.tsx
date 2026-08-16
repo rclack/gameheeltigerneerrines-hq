@@ -1,26 +1,14 @@
-import CommissionerDashboard from "@/components/commissioner/CommissionerDashboard";
-import LeagueSetupWizard from "@/components/commissioner/LeagueSetupWizard";
-import { getSiteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnedLeague } from "@/services/leagueService";
-import { getLeagueRoster } from "@/services/membershipService";
-import { getDraftParticipants, getDraftPickCount, getDraftRosterRules, getLeagueDraft } from "@/services/draftService";
 import { redirect } from "next/navigation";
 
-export default async function CommissionerPage() {
+export default async function CommissionerCompatibilityPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/login?next=/commissioner");
 
-  const league = await getOwnedLeague(supabase, user.id);
-
-  if (!league) return <LeagueSetupWizard userId={user.id} />;
-
-  const roster = await getLeagueRoster(supabase, league.id);
-  const [draft, rosterRules] = await Promise.all([getLeagueDraft(supabase, league.id), getDraftRosterRules(supabase, league.id)]);
-  const participants = draft ? await getDraftParticipants(supabase, draft.id, roster.members) : [];
-  const pickCount = draft ? await getDraftPickCount(supabase, draft.id) : 0;
-
-  return <CommissionerDashboard league={league} roster={roster} draft={draft} participants={participants} pickCount={pickCount} rosterRules={rosterRules} siteOrigin={getSiteOrigin()} />;
+  const { data: leagues, error } = await supabase.from("leagues").select("id").eq("commissioner_id", user.id).order("created_at");
+  if (error) throw error;
+  if (leagues.length === 1) redirect(`/commissioner/${leagues[0].id}`);
+  redirect("/leagues");
 }

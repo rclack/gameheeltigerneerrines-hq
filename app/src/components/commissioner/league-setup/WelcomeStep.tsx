@@ -31,14 +31,14 @@ export default function WelcomeStep({
           </p>
 
           <p className="text-slate-400">
-            League creation takes only a moment. You&apos;ll invite owners and set the draft order from Commissioner HQ afterward.
+            Submit the proposed format for approval first. Once approved, you&apos;ll invite owners and set the draft order from that league&apos;s Commissioner HQ.
           </p>
 
           <Button
             variant="sports"
             onClick={onNext}
           >
-            Start League Setup
+            Start League Request
           </Button>
 
         </div>

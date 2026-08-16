@@ -1,5 +1,6 @@
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import { rulesSummary, type RosterRuleInput } from "@/lib/draft/roster-rules";
 
 interface ReviewStepProps {
   leagueName: string;
@@ -8,7 +9,8 @@ interface ReviewStepProps {
   teamsPerOwner: string;
 
   onBack: () => void;
-  onCreateLeague: () => void;
+  rosterRules: RosterRuleInput[];
+  onSubmitRequest: () => void;
   isSubmitting: boolean;
   error: string | null;
 }
@@ -20,7 +22,8 @@ export default function ReviewStep({
   teamsPerOwner,
 
     onBack,
-    onCreateLeague,
+    rosterRules,
+    onSubmitRequest,
     isSubmitting,
     error,
 }: ReviewStepProps) {
@@ -47,7 +50,7 @@ export default function ReviewStep({
           <div className="rounded-lg bg-slate-800 p-4">
             <p className="text-sm text-slate-400">Teams per Owner</p>
             <p className="text-xl font-bold text-white">{teamsPerOwner}</p>
-            <p className="mt-1 text-xs text-slate-400">Roster restrictions: unrestricted until configured in Commissioner Draft Setup.</p>
+            <p className="mt-1 text-xs text-slate-400">Roster rules: {rulesSummary(rosterRules)}</p>
           </div>
 
           <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
@@ -62,10 +65,10 @@ export default function ReviewStep({
   <Button
     className="sm:w-auto"
     variant="success"
-    onClick={onCreateLeague}
+    onClick={onSubmitRequest}
     disabled={isSubmitting}
   >
-    {isSubmitting ? "Creating League…" : "Create League"}
+    {isSubmitting ? "Submitting Request…" : "Request League Approval"}
   </Button>
 </div>
 

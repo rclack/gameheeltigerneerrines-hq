@@ -17,14 +17,14 @@ async function authorize(leagueId: string) {
   return leagueResult.data ? { session, user, league: leagueResult.data } : null;
 }
 
-function refresh() { revalidatePath("/commissioner/scoring"); }
+function refresh(leagueId: string) { revalidatePath(`/commissioner/${leagueId}/scoring`); }
 
 export async function setSundayRecapEnabledAction(leagueId: string, enabled: boolean): Promise<RecapActionState> {
   const authorized = await authorize(leagueId);
   if (!authorized) return { error: "Only the league commissioner can change Sunday Recap settings." };
   const result = await authorized.session.rpc("set_sunday_recap_enabled", { target_league_id: leagueId, should_enable: enabled });
   if (result.error) return { error: "Sunday Recap settings could not be updated." };
-  refresh();
+  refresh(leagueId);
   return { success: enabled ? "Automatic Sunday Recap enabled." : "Automatic Sunday Recap disabled." };
 }
 
@@ -34,7 +34,7 @@ export async function generateSundayRecapAction(leagueId: string, week: number):
   if (!authorized) return { error: "Only the league commissioner can generate this recap." };
   try {
     const recap = await prepareSundayRecap(createCronClient(), authorized.league, week, authorized.user.id);
-    refresh();
+    refresh(leagueId);
     return { success: `Week ${week} recap is ready for review.`, recap };
   } catch (error) {
     if (error instanceof RecapNotReadyError || error instanceof RecapConfigurationError) return { error: error.message };
@@ -50,7 +50,7 @@ export async function sendSundayRecapAction(leagueId: string, recapId: string): 
   if (result.error || !result.data) return { error: "The selected recap was not found in this league." };
   try {
     const delivery = await sendPreparedSundayRecap(elevated, result.data);
-    refresh();
+    refresh(leagueId);
     if (delivery.skipped) return { success: "This recap was already sent; no duplicate emails were created." };
     if (delivery.failed) return { error: `${delivery.sent} sent; ${delivery.failed} failed. Retry sends only to recipients who have not succeeded.` };
     return { success: `Sunday Recap sent to ${delivery.sent} league owner${delivery.sent === 1 ? "" : "s"}.` };
