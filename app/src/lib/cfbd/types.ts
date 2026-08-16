@@ -2,6 +2,9 @@ export interface CfbdTeam {
   id: number;
   school: string;
   abbreviation?: string | null;
+  color?: string | null;
+  alternateColor?: string | null;
+  logos: string[];
 }
 export interface CfbdGame {
   id: number;

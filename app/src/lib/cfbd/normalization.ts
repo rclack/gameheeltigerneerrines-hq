@@ -26,6 +26,9 @@ export function parseCfbdTeams(payload: unknown): CfbdTeam[] {
       id: requiredNumber(item.id, "team id"),
       school: requiredString(item.school, "team school"),
       abbreviation: typeof item.abbreviation === "string" ? item.abbreviation : null,
+      color: typeof item.color === "string" ? item.color : null,
+      alternateColor: typeof item.alternateColor === "string" ? item.alternateColor : null,
+      logos: Array.isArray(item.logos) ? item.logos.filter((logo): logo is string => typeof logo === "string") : [],
     };
   });
 }

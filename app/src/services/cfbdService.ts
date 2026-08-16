@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { CfbdError, fetchCfbdFbsTeams, fetchCfbdGames, fetchCfbdRankings, testCfbdConnection } from "@/lib/cfbd/client";
-import { buildTeamMappingAudit } from "@/lib/cfbd/mapping";
+import { buildTeamBrandingMappings, buildTeamMappingAudit } from "@/lib/cfbd/mapping";
 import { normalizeCfbdGame } from "@/lib/cfbd/normalization";
 import { prepareCfbdSchedule } from "@/lib/cfbd/schedule";
 import { buildRankingSnapshots, getCfpFirstRankingsAt } from "@/lib/cfbd/rankings";
@@ -91,14 +91,15 @@ async function syncCfbdScheduleInternal(supabase: SupabaseClient<Database>, leag
     try { audit = buildTeamMappingAudit(internalResult.data as Team[], externalTeams, persistedResult.data); }
     catch (error) { throw new CfbdSyncError("mapping_teams", "mapping_error", "CFBD schedule synchronization failed while mapping teams: provider teams could not be mapped.", { cause: error }); }
     progress.mappingsCreated = audit.created.length;
-    if (audit.created.length) {
-      const mappingArgs = { target_league_id: leagueId, target_provider: "cfbd", target_mappings: audit.created as unknown as Json };
+    const allMappings = [...persistedResult.data, ...audit.created];
+    const brandingMappings = buildTeamBrandingMappings(externalTeams, allMappings);
+    if (brandingMappings.length) {
+      const mappingArgs = { target_league_id: leagueId, target_provider: "cfbd", target_mappings: brandingMappings as unknown as Json };
       const { error } = scheduled
         ? await supabase.rpc("scheduled_save_external_team_mappings", mappingArgs)
         : await supabase.rpc("save_external_team_mappings", mappingArgs);
       if (error) throw databaseSyncError("saving_team_mappings", error);
     }
-    const allMappings = [...persistedResult.data, ...audit.created];
     const byId = new Map(allMappings.map((mapping) => [mapping.external_team_id, mapping.team_id]));
     const fbsExternalIds = new Set(externalTeams.map((team) => String(team.id)));
     const prepared = prepareCfbdSchedule(externalGames.map(normalizeCfbdGame), fbsExternalIds, byId);

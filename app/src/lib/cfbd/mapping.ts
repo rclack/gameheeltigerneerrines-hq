@@ -2,6 +2,41 @@ import type { CfbdTeam, NormalizedCfbdGame } from "./types.ts";
 
 export interface InternalTeamIdentity { id: string; school_name: string; short_name: string; abbreviation: string }
 export interface PersistedMapping { team_id: string; external_team_id: string; external_name: string }
+export interface TeamBrandingMapping extends PersistedMapping { primary_color: string | null; secondary_color: string | null; logo_url: string | null }
+
+function validHex(value?: string | null) {
+  if (!value) return null;
+  const color = value.startsWith("#") ? value : `#${value}`;
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : null;
+}
+
+function validLogo(logos: string[]) {
+  for (const logo of logos) {
+    try {
+      const parsed = new URL(logo);
+      if (["http:", "https:"].includes(parsed.protocol) && ["a.espncdn.com", "a1.espncdn.com"].includes(parsed.hostname)) {
+        parsed.protocol = "https:";
+        return parsed.toString();
+      }
+    } catch {
+      // Ignore malformed provider assets and preserve the initials fallback.
+    }
+  }
+  return null;
+}
+
+export function buildTeamBrandingMappings(externalTeams: CfbdTeam[], mappings: PersistedMapping[]): TeamBrandingMapping[] {
+  const externalById = new Map(externalTeams.map((team) => [String(team.id), team]));
+  return mappings.map((mapping) => {
+    const team = externalById.get(mapping.external_team_id);
+    return {
+      ...mapping,
+      primary_color: validHex(team?.color),
+      secondary_color: validHex(team?.alternateColor),
+      logo_url: validLogo(team?.logos ?? []),
+    };
+  });
+}
 
 const aliases: Record<string, string> = {
   "miami fl": "miami",

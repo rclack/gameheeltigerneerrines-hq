@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import FavoriteTeamSelector from "@/components/league/FavoriteTeamSelector";
 import TeamNameForm from "@/components/league/TeamNameForm";
+import TeamLogo from "@/components/team/TeamLogo";
+import { favoriteTeamTheme } from "@/lib/league/favorite-team-theme";
 import {
   getTeamSeasonRecord,
   ownerScoringSummary,
@@ -58,19 +61,23 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
     .maybeSingle();
   if (!membership) notFound();
 
-  const [roster, draft, standings] = await Promise.all([
+  const [roster, draft, standings, profile, teams] = await Promise.all([
     getLeagueRoster(supabase, league.id),
     getLeagueDraft(supabase, league.id),
     getLeagueStandings(supabase, league.id),
+    supabase.from("profiles").select("*").eq("id", user.id).single().then(({ data, error }) => {
+      if (error) throw error;
+      return data;
+    }),
+    getActiveTeams(supabase),
   ]);
-  const [participants, mySlot, teams, games] = draft
+  const [participants, mySlot, games] = draft
     ? await Promise.all([
         getDraftParticipants(supabase, draft.id, roster.members),
         getMemberDraftSlot(supabase, draft.id, membership.id),
-        getActiveTeams(supabase),
         getLeagueGames(supabase, league.id),
       ])
-    : [[], null, [], []];
+    : [[], null, []];
   const picks = draft ? await getDraftPicks(supabase, draft.id, participants, teams) : [];
   const myPicks = picks.filter((pick) => pick.league_member_id === membership.id);
   const intelligence: Record<string, Awaited<ReturnType<typeof getDraftTeamIntelligence>>[string]> = myPicks.length
@@ -80,6 +87,8 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
   const relevantGames = selectRelevantOwnerGames(games, myTeamIds, new Date());
   const scoring = ownerScoringSummary(myPicks, standings.events);
   const myStanding = standings.rows.find((row) => row.memberId === membership.id);
+  const favoriteTeam = teams.find((team) => team.id === profile.favorite_team_id) ?? null;
+  const theme = favoriteTeamTheme(favoriteTeam);
   const draftIsPrimary = draft?.status === "live" || draft?.status === "paused" || myPicks.length === 0;
   const draftStatus = !draft
     ? "Not set up"
@@ -89,10 +98,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="border-b-4 border-orange-500 bg-blue-950 text-white">
+      <header className="border-b-4 bg-blue-950 text-white" style={{ borderColor: theme.secondary }}>
         <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-300">{league.season} College Football Pool</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-200">{favoriteTeam ? `${favoriteTeam.school_name} faithful` : `${league.season} College Football Pool`}</p>
             <h1 className="mt-1 text-2xl font-black sm:text-3xl">{league.name}</h1>
           </div>
           {league.commissioner_id === user.id && (
@@ -104,27 +113,45 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
       </header>
 
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:px-6 sm:py-8">
-        <section className="overflow-hidden rounded-2xl bg-blue-950 text-white shadow-xl" aria-labelledby="my-season-heading">
-          <div className="border-b border-white/10 bg-[linear-gradient(120deg,#172554_25%,#312e81_100%)] p-5 sm:p-7">
-            <p id="my-season-heading" className="text-xs font-black uppercase tracking-[0.22em] text-orange-300">My Season</p>
+        <section
+          className="relative overflow-hidden rounded-2xl shadow-xl"
+          aria-labelledby="my-season-heading"
+          style={{
+            color: theme.foreground,
+            backgroundColor: theme.primary,
+            backgroundImage: `radial-gradient(circle at 82% 22%, ${theme.secondary}66 0, transparent 30%), linear-gradient(120deg, ${theme.primaryDark} 0%, ${theme.primary} 62%, ${theme.secondary}99 140%)`,
+            boxShadow: `0 20px 45px -28px ${theme.primary}`,
+          }}
+        >
+          {favoriteTeam && (
+            <div className="pointer-events-none absolute -right-5 -top-10 opacity-15 sm:right-8"><TeamLogo team={favoriteTeam} size="hero" decorative /></div>
+          )}
+          <div className="relative border-b border-white/10 p-5 sm:p-7">
+            <p id="my-season-heading" className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: theme.heroAccent }}>{favoriteTeam ? `${favoriteTeam.school_name} · My Season` : "My Season"}</p>
             <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
                 <p className="text-5xl font-black leading-none sm:text-6xl">{myStanding?.totalPoints ?? 0}</p>
-                <p className="mt-2 text-lg font-bold text-blue-100">
+                <p className="mt-2 text-lg font-bold opacity-85">
                   {myStanding ? `#${myStanding.rank} in the league` : "Standings pending"}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center sm:flex">
-                <div className="rounded-lg bg-white/10 px-4 py-3"><p className="text-2xl font-black">{myPicks.length}</p><p className="text-xs text-blue-200">Teams owned</p></div>
-                <div className="rounded-lg bg-white/10 px-4 py-3"><p className="text-2xl font-black">{relevantGames.length}</p><p className="text-xs text-blue-200">On the radar</p></div>
+                <div className="rounded-lg border border-current/15 bg-black/10 px-4 py-3"><p className="text-2xl font-black">{myPicks.length}</p><p className="text-xs opacity-75">Teams owned</p></div>
+                <div className="rounded-lg border border-current/15 bg-black/10 px-4 py-3"><p className="text-2xl font-black">{relevantGames.length}</p><p className="text-xs opacity-75">On the radar</p></div>
               </div>
             </div>
             <div className="mt-5 grid gap-2 sm:flex">
-              <Link href={`/league/${league.id}/score`} className="rounded-lg bg-orange-500 px-5 py-3 text-center font-black text-white transition hover:bg-orange-600">View My Score</Link>
-              <Link href={`/league/${league.id}/standings`} className="rounded-lg border border-white/50 px-5 py-3 text-center font-bold transition hover:bg-white/10">League Standings</Link>
+              <Link href={`/league/${league.id}/score`} className="rounded-lg px-5 py-3 text-center font-black shadow-sm transition hover:brightness-95" style={{ backgroundColor: theme.secondary, color: theme.secondaryForeground }}>View My Score</Link>
+              <Link href={`/league/${league.id}/standings`} className="rounded-lg border border-current/50 px-5 py-3 text-center font-bold transition hover:bg-black/10">League Standings</Link>
             </div>
           </div>
         </section>
+
+        <FavoriteTeamSelector
+          leagueId={league.id}
+          teams={teams.map((team) => ({ id: team.id, school_name: team.school_name, abbreviation: team.abbreviation, conference: team.conference, primary_color: team.primary_color, logo_url: team.logo_url }))}
+          favoriteTeamId={favoriteTeam?.id ?? null}
+        />
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <section className="space-y-6">
@@ -154,7 +181,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
               <>
                 <section className="rounded-2xl bg-white p-5 shadow" aria-labelledby="watchlist-heading">
                   <div className="flex items-end justify-between gap-4">
-                    <div><p className="text-xs font-black uppercase tracking-widest text-orange-600">What matters next</p><h2 id="watchlist-heading" className="mt-1 text-2xl font-black">Saturday Watchlist</h2></div>
+                    <div><p className="text-xs font-black uppercase tracking-widest" style={{ color: favoriteTeam ? theme.primaryText : "#EA580C" }}>What matters next</p><h2 id="watchlist-heading" className="mt-1 text-2xl font-black">Saturday Watchlist</h2></div>
                     <p className="text-xs font-semibold text-slate-500">Next {relevantGames.length} games</p>
                   </div>
                   {relevantGames.length ? (
@@ -172,9 +199,12 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
                               <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${game.status === "in_progress" ? "bg-red-600 text-white" : "bg-blue-100 text-blue-800"}`}>{gameStatusLabel(game.status)}</span>
                               <span className="text-xs font-bold text-slate-500">Week {game.week}</span>
                             </div>
-                            <p className="mt-3 text-lg font-black">{ownedRanking ? `#${ownedRanking.rank} ` : ""}{formatGameParticipant(ownedParticipant)}</p>
+                            <div className="mt-3 flex items-center gap-3">
+                              <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-white shadow-sm"><TeamLogo team={ownedParticipant?.kind === "internal" ? ownedParticipant.team : { school_name: formatGameParticipant(ownedParticipant) }} size="md" decorative /></span>
+                              <p className="text-lg font-black">{ownedRanking ? `#${ownedRanking.rank} ` : ""}{formatGameParticipant(ownedParticipant)}</p>
+                            </div>
                             <p className="my-1 text-xs font-bold uppercase tracking-wider text-slate-400">{context}</p>
-                            <p className="font-bold text-slate-700">{opponentRanking ? `#${opponentRanking.rank} ` : ""}{formatGameParticipant(opponent)}</p>
+                            <div className="flex items-center gap-2"><TeamLogo team={opponent?.kind === "internal" ? opponent.team : { school_name: formatGameParticipant(opponent) }} size="sm" decorative /><p className="font-bold text-slate-700">{opponentRanking ? `#${opponentRanking.rank} ` : ""}{formatGameParticipant(opponent)}</p></div>
                             <div className="mt-3 border-t border-slate-200 pt-3">
                               <p className="font-bold text-blue-950">{gameDateLabel(game)}</p>
                               {game.status === "in_progress" && game.home_score !== null && game.away_score !== null && <p className="mt-1 text-sm font-black text-red-700">Live score: {game.away_score}–{game.home_score}</p>}
@@ -198,7 +228,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
                       return (
                         <article key={pick.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex items-start justify-between gap-3">
-                            <div><p className="text-lg font-black text-blue-950">{facts?.apRank ? `#${facts.apRank} ` : ""}{pick.team.school_name}</p><p className="text-sm font-semibold text-slate-500">{pick.team.conference ?? "Conference unavailable"} · {facts?.classification ?? "FBS"}</p></div>
+                            <div className="flex min-w-0 items-center gap-3"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm"><TeamLogo team={pick.team} size="md" decorative /></span><div className="min-w-0"><p className="truncate text-lg font-black text-blue-950">{facts?.apRank ? `#${facts.apRank} ` : ""}{pick.team.school_name}</p><p className="truncate text-sm font-semibold text-slate-500">{pick.team.conference ?? "Conference unavailable"} · {facts?.classification ?? "FBS"}</p></div></div>
                             <span className="rounded-lg bg-blue-950 px-2.5 py-1 text-sm font-black text-white">{recordLabel(record)}</span>
                           </div>
                           <div className="mt-4 flex items-end justify-between border-t border-slate-200 pt-3">

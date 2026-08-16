@@ -13,18 +13,21 @@ export type Database = {
         Row: {
           id: string;
           display_name: string;
+          favorite_team_id: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id: string;
           display_name: string;
+          favorite_team_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           display_name?: string;
+          favorite_team_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -133,9 +136,9 @@ export type Database = {
         Relationships: [];
       };
       teams: {
-        Row: { id: string; school_name: string; short_name: string; abbreviation: string; conference: string; logo_url: string | null; active: boolean; created_at: string };
-        Insert: { id?: string; school_name: string; short_name: string; abbreviation: string; conference: string; logo_url?: string | null; active?: boolean; created_at?: string };
-        Update: { id?: string; school_name?: string; short_name?: string; abbreviation?: string; conference?: string; logo_url?: string | null; active?: boolean; created_at?: string };
+        Row: { id: string; school_name: string; short_name: string; abbreviation: string; conference: string; logo_url: string | null; primary_color: string | null; secondary_color: string | null; active: boolean; created_at: string };
+        Insert: { id?: string; school_name: string; short_name: string; abbreviation: string; conference: string; logo_url?: string | null; primary_color?: string | null; secondary_color?: string | null; active?: boolean; created_at?: string };
+        Update: { id?: string; school_name?: string; short_name?: string; abbreviation?: string; conference?: string; logo_url?: string | null; primary_color?: string | null; secondary_color?: string | null; active?: boolean; created_at?: string };
         Relationships: [];
       };
       drafts: {

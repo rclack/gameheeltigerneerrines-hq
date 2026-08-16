@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { getTeamSeasonRecord, ownerScoringSummary, recordLabel, selectRelevantOwnerGames } from "../../src/lib/league/owner-season.ts";
 
-const team = (id: string) => ({ id, school_name: id, short_name: id, abbreviation: id, conference: "Test", logo_url: null, active: true, created_at: "" });
+const team = (id: string) => ({ id, school_name: id, short_name: id, abbreviation: id, conference: "Test", logo_url: null, primary_color: null, secondary_color: null, active: true, created_at: "" });
 const participant = (id: string) => ({ kind: "internal" as const, id, displayName: id, classification: "fbs" as const, team: team(id) });
 const game = (id: string, status: string, start: string, homeScore: number | null = null, awayScore: number | null = null) => ({
   id, league_id: "league", external_id: id, external_provider: "cfbd", data_source: "provider", provider_payload_hash: null,
