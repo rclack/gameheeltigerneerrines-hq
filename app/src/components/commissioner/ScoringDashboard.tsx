@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { addManualEventAction, saveGameAction, scoreGameAction, syncCfbdScheduleAction, testCfbdConnectionAction, voidManualEventAction } from "@/app/commissioner/scoring/actions";
 import Button from "@/components/ui/Button";
+import { canProcessScoring, defaultGameView, gameAttentionCounts, hasGameRankingContext, visibleGames, type GameView } from "@/lib/cfbd/scoringDashboard";
 import { getGameScoringState } from "@/lib/cfbd/scoringState";
 import { syncRunFailureDetail } from "@/lib/cfbd/diagnostics";
 import type { GameDetail, SaveGameInput } from "@/services/gameService";
@@ -68,6 +69,7 @@ export default function ScoringDashboard({ league, rules, events, games, standin
   const [teamFilter, setTeamFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");
   const [weekFilter, setWeekFilter] = useState("");
+  const [gameView, setGameView] = useState<GameView>(() => defaultGameView(games));
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +78,11 @@ export default function ScoringDashboard({ league, rules, events, games, standin
   const ownerByTeam = useMemo(() => new Map(draftedTeams.map((item) => [item.team.id, item.ownerMemberId])), [draftedTeams]);
   const weeks = [...new Set(events.flatMap((event) => event.week === null ? [] : [event.week]))].sort((a, b) => a - b);
   const filteredEvents = events.filter((event) => (!teamFilter || event.team_id === teamFilter) && (!ownerFilter || ownerByTeam.get(event.team_id) === ownerFilter) && (!weekFilter || event.week === Number(weekFilter)));
+  const gameWeeks = [...new Set(games.map((item) => item.week))].sort((a, b) => a - b);
+  const displayedGames = visibleGames(games, gameView);
+  const attentionCounts = gameAttentionCounts(games);
+  const gameFormRef = useRef<HTMLDivElement>(null);
+  const gameFormHeadingRef = useRef<HTMLHeadingElement>(null);
 
   async function run(action: () => Promise<{ error?: string; success?: string }>) {
     if (pending) return;
@@ -109,7 +116,16 @@ export default function ScoringDashboard({ league, rules, events, games, standin
       postseason: existing.postseason, rankingSource: homeRank?.ranking_source ?? awayRank?.ranking_source ?? null,
       homeRank: homeRank?.rank ?? null, awayRank: awayRank?.rank ?? null,
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.requestAnimationFrame(() => {
+      gameFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      gameFormHeadingRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function cancelGameEdit() {
+    setGame(emptyGame(league));
+    setMessage(null);
+    setError(null);
   }
 
   async function voidEvent(eventId: string) {
@@ -147,8 +163,9 @@ export default function ScoringDashboard({ league, rules, events, games, standin
             <Button className="mt-4 sm:w-auto" disabled={!selectedTeam || !selectedRule || pending} onClick={() => setConfirmingManual(true)}>Review Event</Button>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow">
-            <h2 className="text-2xl font-bold">Enter or Update Game Result</h2><p className="mt-1 text-sm text-slate-700">Ranking fields are the selected source&apos;s pre-game ranks. The source remains configurable.</p>
+          <div ref={gameFormRef} className={`scroll-mt-6 rounded-xl bg-white p-6 shadow ${game.gameId ? "ring-2 ring-orange-500" : ""}`}>
+            {game.gameId && <p className="mb-2 inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-orange-800">Editing Week {game.week}: {teams.find((team) => team.id === game.awayTeamId)?.school_name ?? "Away team"} at {teams.find((team) => team.id === game.homeTeamId)?.school_name ?? "Home team"}</p>}
+            <h2 ref={gameFormHeadingRef} tabIndex={-1} className="text-2xl font-bold outline-none">{game.gameId ? "Edit Game Result" : "Enter or Update Game Result"}</h2><p className="mt-1 text-sm text-slate-700">Ranking fields are the selected source&apos;s pre-game ranks. The source remains configurable.</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <label className="text-sm font-semibold">Week<input type="number" min={1} value={game.week} onChange={(event) => setGame({ ...game, week: Number(event.target.value) })} className="mt-1 w-full rounded-lg border p-2" /></label>
               <label className="text-sm font-semibold">Game date<input type="date" value={game.gameDate} onChange={(event) => setGame({ ...game, gameDate: event.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
@@ -163,11 +180,21 @@ export default function ScoringDashboard({ league, rules, events, games, standin
               <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={game.neutralSite} onChange={(event) => setGame({ ...game, neutralSite: event.target.checked })} />Neutral site</label>
               <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={game.postseason} onChange={(event) => setGame({ ...game, postseason: event.target.checked })} />Postseason</label>
             </div>
-            <div className="mt-4 flex gap-3"><Button className="sm:w-auto" disabled={pending || !game.homeTeamId || !game.awayTeamId || game.homeScore === null || game.awayScore === null} onClick={async () => { const result = await run(() => saveGameAction(league.id, game)); if (!result?.error) setGame(emptyGame(league)); }}>{game.gameId ? "Update Game" : "Save Final Game"}</Button>{game.gameId && <Button className="sm:w-auto" variant="secondary" onClick={() => setGame(emptyGame(league))}>Cancel Edit</Button>}</div>
+            <div className="mt-4 flex gap-3"><Button className="sm:w-auto" disabled={pending || !game.homeTeamId || !game.awayTeamId || game.homeScore === null || game.awayScore === null} onClick={async () => { const result = await run(() => saveGameAction(league.id, game)); if (!result?.error) setGame(emptyGame(league)); }}>{game.gameId ? "Update Game" : "Save Final Game"}</Button>{game.gameId && <Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={cancelGameEdit}>Cancel Edit</Button>}</div>
           </div>
         </section>
 
-        <section className="rounded-xl bg-white p-6 shadow"><h2 className="text-2xl font-bold">Games and Scoring Review</h2><p className="mt-1 text-sm text-slate-700">Imported finals remain unscored until you explicitly process them.</p><div className="mt-4 space-y-3">{games.length ? games.map((item) => { const scoringState = getGameScoringState(item); const scoringLabel = scoringState === "scored" ? "Scored" : scoringState === "needs_reprocessing" ? "Result Changed / Reprocess" : scoringState === "needs_scoring" ? "Needs Scoring" : "Not Final"; const label = (participant: GameDetail["homeParticipant"]) => `${participant.displayName}${participant.kind === "external" ? ` (${participant.classification.toUpperCase()})` : ""}`; const expectedSnapshots = item.home_team_id && item.away_team_id ? 2 : 0; const rankingContextAvailable = expectedSnapshots === 0 || item.rankings.length >= expectedSnapshots; const rankingSource = item.rankings[0]?.ranking_source; return <div key={item.id} className="flex flex-col justify-between gap-3 rounded-lg bg-slate-100 p-4 lg:flex-row lg:items-center"><div><p className="font-bold">Week {item.week}: {label(item.awayParticipant)} {item.away_score ?? "—"} at {label(item.homeParticipant)} {item.home_score ?? "—"}</p><p className="text-sm text-slate-700">{item.game_date} · {item.status} · {item.external_provider ? item.external_provider.toUpperCase() : "Manual"}{item.manual_override ? " · manual override" : ""}{item.provider_synced_at ? ` · synced ${formatTimestamp(item.provider_synced_at)}` : ""}</p><p className={`mt-1 text-xs font-bold ${rankingContextAvailable ? "text-slate-700" : "text-red-700"}`}>{rankingContextAvailable ? `Pregame rankings: ${rankingSource ?? "not applicable"}` : "Pregame ranking context unavailable — review before scoring."}</p><p className={`${scoringState === "scored" ? "text-green-700" : scoringState === "needs_reprocessing" ? "text-red-700" : "text-amber-700"} mt-1 text-sm font-black`}>{item.status === "final" ? `Final — ${scoringLabel}` : scoringLabel}</p></div><div className="flex gap-2">{item.home_team_id && item.away_team_id && <Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => editGame(item)}>Edit</Button>}<Button className="sm:w-auto" variant="sports" disabled={pending || item.status !== "final" || scoringState === "scored" || !rankingContextAvailable} onClick={() => run(() => scoreGameAction(league.id, item.id))}>{scoringState === "needs_reprocessing" ? "Reprocess Scoring" : scoringState === "scored" ? "Scoring Current" : "Process Scoring"}</Button></div></div>; }) : <p className="text-slate-500">No games entered yet.</p>}</div></section>
+        <section className="rounded-xl bg-white p-6 shadow">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+            <div><h2 className="text-2xl font-bold">Games and Scoring Review</h2><p className="mt-1 text-sm text-slate-700">Imported finals remain unscored until you explicitly process them.</p></div>
+            <label className="text-sm font-semibold">Game view<select value={gameView} onChange={(event) => setGameView(event.target.value as GameView)} className="mt-1 block w-full min-w-56 rounded-lg border p-2"><option value="attention">Needs attention</option><option value="all">All games — action first</option>{gameWeeks.map((week) => <option key={week} value={`week:${week}`}>Week {week}</option>)}</select></label>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[["Needs Scoring", attentionCounts.needsScoring], ["Needs Reprocessing", attentionCounts.needsReprocessing], ["Missing Ranking Context", attentionCounts.missingRankingContext], ["Current", attentionCounts.current]].map(([label, count]) => <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-black uppercase tracking-wide text-slate-600">{label}</p><p className="mt-1 text-2xl font-black text-blue-950">{count}</p></div>)}
+          </div>
+          <p className="mt-4 text-sm font-semibold text-slate-700">Showing {displayedGames.length} of {games.length} games</p>
+          <div className="mt-3 space-y-3">{displayedGames.length ? displayedGames.map((item) => { const scoringState = getGameScoringState(item); const scoringLabel = scoringState === "scored" ? "Scored" : scoringState === "needs_reprocessing" ? "Result Changed / Reprocess" : scoringState === "needs_scoring" ? "Needs Scoring" : "Not Final"; const label = (participant: GameDetail["homeParticipant"]) => `${participant.displayName}${participant.kind === "external" ? ` (${participant.classification.toUpperCase()})` : ""}`; const rankingContextAvailable = hasGameRankingContext(item); const rankingSource = item.rankings[0]?.ranking_source; return <div key={item.id} className={`flex flex-col justify-between gap-3 rounded-lg p-4 lg:flex-row lg:items-center ${game.gameId === item.id ? "bg-orange-50 ring-2 ring-orange-400" : "bg-slate-100"}`}><div><p className="font-bold">Week {item.week}: {label(item.awayParticipant)} {item.away_score ?? "—"} at {label(item.homeParticipant)} {item.home_score ?? "—"}</p><p className="text-sm text-slate-700">{item.game_date} · {item.status} · {item.external_provider ? item.external_provider.toUpperCase() : "Manual"}{item.manual_override ? " · manual override" : ""}{item.provider_synced_at ? ` · synced ${formatTimestamp(item.provider_synced_at)}` : ""}</p><p className={`mt-1 text-xs font-bold ${rankingContextAvailable ? "text-slate-700" : "text-red-700"}`}>{rankingContextAvailable ? `Pregame rankings: ${rankingSource ?? "not applicable"}` : "Pregame ranking context unavailable — review before scoring."}</p><p className={`${scoringState === "scored" ? "text-green-700" : scoringState === "needs_reprocessing" ? "text-red-700" : "text-amber-700"} mt-1 text-sm font-black`}>{item.status === "final" ? `Final — ${scoringLabel}` : scoringLabel}</p></div><div className="flex gap-2">{item.home_team_id && item.away_team_id && <Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => editGame(item)}>{game.gameId === item.id ? "Editing" : "Edit"}</Button>}<Button className="sm:w-auto" variant="sports" disabled={pending || !canProcessScoring(item)} onClick={() => run(() => scoreGameAction(league.id, item.id))}>{scoringState === "needs_reprocessing" ? "Reprocess Scoring" : scoringState === "scored" ? "Scoring Current" : "Process Scoring"}</Button></div></div>; }) : <p className="rounded-lg bg-slate-50 p-4 text-slate-600">No games match this view.</p>}</div>
+        </section>
 
         <section className="rounded-xl bg-white p-6 shadow"><div className="flex flex-col justify-between gap-3 sm:flex-row"><div><h2 className="text-2xl font-bold">Current Standings</h2><p className="text-sm text-slate-500">Equal totals share rank.</p></div><Link href={`/league/${league.id}/standings`} className="font-bold text-blue-700">Full standings →</Link></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{standings.rows.map((row) => <div key={row.memberId} className="rounded-lg bg-slate-100 p-4"><p className="text-sm font-black text-slate-500">#{row.rank}</p><p className="font-bold">{row.poolTeamName ?? row.ownerName}</p><p className="mt-2 text-2xl font-black">{row.totalPoints}</p></div>)}</div></section>
 
