@@ -2,13 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 
-import { saveGame, scoreGame, type SaveGameInput } from "@/services/gameService";
+import { getLeagueGames, saveGame, scoreGame, type GameDetail, type SaveGameInput } from "@/services/gameService";
 import { addManualScoringEvent, voidManualScoringEvent } from "@/services/scoringService";
 import { createClient } from "@/lib/supabase/server";
 import { checkCfbdConnection, syncCfbdSchedule } from "@/services/cfbdService";
 import { CfbdSyncError } from "@/lib/cfbd/diagnostics";
+import { bulkScoringPlan, executeBulkScoring } from "@/lib/cfbd/scoringDashboard";
 
 export interface ScoringActionState { error?: string; success?: string }
+export interface BulkScoringActionState {
+  error?: string;
+  processed?: Array<{ gameId: string; label: string; eventCount: number }>;
+  failed?: Array<{ gameId: string; label: string; reason: string }>;
+  excluded?: { notFinal: number; alreadyCurrent: number; missingRankingContext: number; otherwiseIneligible: number };
+}
 
 async function authorizedClient(leagueId: string) {
   const supabase = await createClient();
@@ -75,6 +82,34 @@ export async function scoreGameAction(leagueId: string, gameId: string): Promise
     refreshScoring(leagueId);
     return { success: `Game scoring is current (${count} active event${count === 1 ? "" : "s"}).` };
   } catch (error) { return { error: safeError(error) }; }
+}
+
+function gameLabel(game: GameDetail) {
+  return `Week ${game.week}: ${game.awayParticipant.displayName} at ${game.homeParticipant.displayName}`;
+}
+
+export async function scoreEligibleFinalsAction(leagueId: string): Promise<BulkScoringActionState> {
+  const supabase = await authorizedClient(leagueId);
+  if (!supabase) return { error: "You do not have permission to score games for this league." };
+  try {
+    const games = await getLeagueGames(supabase, leagueId);
+    const plan = bulkScoringPlan(games);
+    const result = await executeBulkScoring(plan.eligible, async (game) => {
+      try {
+        return await scoreGame(supabase, game.id);
+      } catch (error) {
+        throw new Error(safeError(error));
+      }
+    });
+    refreshScoring(leagueId);
+    return {
+      processed: result.processed.map(({ game, eventCount }) => ({ gameId: game.id, label: gameLabel(game), eventCount })),
+      failed: result.failed.map(({ game, reason }) => ({ gameId: game.id, label: gameLabel(game), reason })),
+      excluded: plan.excluded,
+    };
+  } catch (error) {
+    return { error: safeError(error) };
+  }
 }
 
 export async function testCfbdConnectionAction(leagueId: string): Promise<ScoringActionState> {

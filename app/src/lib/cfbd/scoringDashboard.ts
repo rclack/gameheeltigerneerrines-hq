@@ -8,6 +8,8 @@ export interface ScoringDashboardGame {
   home_team_id: string | null;
   away_team_id: string | null;
   rankings: Array<{ ranking_source: string }>;
+  home_score: number | null;
+  away_score: number | null;
   scored_at: string | null;
   scoring_fingerprint: string | null;
 }
@@ -23,6 +25,43 @@ export function canProcessScoring(game: ScoringDashboardGame) {
   return game.status === "final"
     && getGameScoringState(game) !== "scored"
     && hasGameRankingContext(game);
+}
+
+export type BulkScoringExclusion = "notFinal" | "alreadyCurrent" | "missingRankingContext" | "otherwiseIneligible";
+
+export function bulkScoringExclusion(game: ScoringDashboardGame): BulkScoringExclusion | null {
+  if (game.status !== "final") return "notFinal";
+  if (getGameScoringState(game) === "scored") return "alreadyCurrent";
+  if (!hasGameRankingContext(game)) return "missingRankingContext";
+  if (game.home_score === null || game.away_score === null || game.home_score === game.away_score) return "otherwiseIneligible";
+  return null;
+}
+
+export function bulkScoringPlan<T extends ScoringDashboardGame>(games: T[]) {
+  const excluded = { notFinal: 0, alreadyCurrent: 0, missingRankingContext: 0, otherwiseIneligible: 0 };
+  const eligible: T[] = [];
+  for (const game of games) {
+    const reason = bulkScoringExclusion(game);
+    if (reason) excluded[reason] += 1;
+    else eligible.push(game);
+  }
+  return { eligible, excluded };
+}
+
+export async function executeBulkScoring<T extends ScoringDashboardGame>(
+  games: T[],
+  score: (game: T) => Promise<number>,
+) {
+  const processed: Array<{ game: T; eventCount: number }> = [];
+  const failed: Array<{ game: T; reason: string }> = [];
+  for (const game of games) {
+    try {
+      processed.push({ game, eventCount: await score(game) });
+    } catch (error) {
+      failed.push({ game, reason: error instanceof Error ? error.message : "Unknown scoring failure." });
+    }
+  }
+  return { processed, failed };
 }
 
 export function isGameActionable(game: ScoringDashboardGame) {

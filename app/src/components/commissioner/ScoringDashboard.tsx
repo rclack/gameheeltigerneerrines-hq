@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
-import { addManualEventAction, saveGameAction, scoreGameAction, syncCfbdScheduleAction, testCfbdConnectionAction, voidManualEventAction } from "@/app/commissioner/scoring/actions";
+import { addManualEventAction, saveGameAction, scoreEligibleFinalsAction, scoreGameAction, syncCfbdScheduleAction, testCfbdConnectionAction, voidManualEventAction, type BulkScoringActionState } from "@/app/commissioner/scoring/actions";
 import Button from "@/components/ui/Button";
-import { canProcessScoring, defaultGameView, gameAttentionCounts, hasGameRankingContext, visibleGames, type GameView } from "@/lib/cfbd/scoringDashboard";
+import { bulkScoringPlan, canProcessScoring, defaultGameView, gameAttentionCounts, hasGameRankingContext, visibleGames, type GameView } from "@/lib/cfbd/scoringDashboard";
 import { getGameScoringState } from "@/lib/cfbd/scoringState";
 import { syncRunFailureDetail } from "@/lib/cfbd/diagnostics";
 import type { GameDetail, SaveGameInput } from "@/services/gameService";
@@ -65,6 +65,8 @@ export default function ScoringDashboard({ league, rules, events, games, standin
   const manualRules = rules.filter((rule) => rule.category !== "game_result");
   const [manual, setManual] = useState({ teamId: draftedTeams[0]?.team.id ?? "", ruleId: manualRules[0]?.id ?? "", week: "", eventDate: new Date().toISOString().slice(0, 10), notes: "" });
   const [confirmingManual, setConfirmingManual] = useState(false);
+  const [confirmingBulk, setConfirmingBulk] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkScoringActionState | null>(null);
   const [game, setGame] = useState<SaveGameInput>(() => emptyGame(league));
   const [teamFilter, setTeamFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");
@@ -81,6 +83,7 @@ export default function ScoringDashboard({ league, rules, events, games, standin
   const gameWeeks = [...new Set(games.map((item) => item.week))].sort((a, b) => a - b);
   const displayedGames = visibleGames(games, gameView);
   const attentionCounts = gameAttentionCounts(games);
+  const bulkPlan = bulkScoringPlan(games);
   const gameFormRef = useRef<HTMLDivElement>(null);
   const gameFormHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -102,6 +105,21 @@ export default function ScoringDashboard({ league, rules, events, games, standin
       notes: manual.notes.trim() || null,
     }));
     if (!result?.error) { setConfirmingManual(false); setManual((value) => ({ ...value, week: "", notes: "" })); }
+  }
+
+  async function confirmBulkScoring() {
+    if (pending) return;
+    setPending(true); setError(null); setMessage(null); setBulkResult(null);
+    const result = await scoreEligibleFinalsAction(league.id);
+    setPending(false);
+    setBulkResult(result);
+    if (result.error) setError(result.error);
+    else {
+      const processedCount = result.processed?.length ?? 0;
+      const failedCount = result.failed?.length ?? 0;
+      setMessage(`${processedCount} game${processedCount === 1 ? "" : "s"} processed${failedCount ? `; ${failedCount} failed` : ""}.`);
+      router.refresh();
+    }
   }
 
   function editGame(existing: GameDetail) {
@@ -187,7 +205,7 @@ export default function ScoringDashboard({ league, rules, events, games, standin
         <section className="rounded-xl bg-white p-6 shadow">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
             <div><h2 className="text-2xl font-bold">Games and Scoring Review</h2><p className="mt-1 text-sm text-slate-700">Imported finals remain unscored until you explicitly process them.</p></div>
-            <label className="text-sm font-semibold">Game view<select value={gameView} onChange={(event) => setGameView(event.target.value as GameView)} className="mt-1 block w-full min-w-56 rounded-lg border p-2"><option value="attention">Needs attention</option><option value="all">All games — action first</option>{gameWeeks.map((week) => <option key={week} value={`week:${week}`}>Week {week}</option>)}</select></label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end"><label className="text-sm font-semibold">Game view<select value={gameView} onChange={(event) => setGameView(event.target.value as GameView)} className="mt-1 block w-full min-w-56 rounded-lg border p-2"><option value="attention">Needs attention</option><option value="all">All games — action first</option>{gameWeeks.map((week) => <option key={week} value={`week:${week}`}>Week {week}</option>)}</select></label><Button className="sm:w-auto" variant="sports" disabled={pending || bulkPlan.eligible.length === 0} onClick={() => { setBulkResult(null); setConfirmingBulk(true); }}>Process All Eligible Finals</Button></div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[["Needs Scoring", attentionCounts.needsScoring], ["Needs Reprocessing", attentionCounts.needsReprocessing], ["Missing Ranking Context", attentionCounts.missingRankingContext], ["Current", attentionCounts.current]].map(([label, count]) => <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-black uppercase tracking-wide text-slate-600">{label}</p><p className="mt-1 text-2xl font-black text-blue-950">{count}</p></div>)}
@@ -202,6 +220,7 @@ export default function ScoringDashboard({ league, rules, events, games, standin
       </div>
 
       {confirmingManual && selectedTeam && selectedRule && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="manual-confirm-title"><div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"><h2 id="manual-confirm-title" className="text-xl font-bold">Confirm Scoring Event</h2><div className="mt-4 rounded-lg bg-slate-100 p-5"><p className="text-xl font-black">{selectedTeam.school_name}</p><p className="mt-1 text-lg">{selectedRule.display_name}</p><p className={`${selectedRule.points > 0 ? "text-green-700" : "text-red-700"} mt-3 text-3xl font-black`}>{points(selectedRule.points)} points</p><p className="mt-2 text-sm text-slate-500">{manual.week ? `Week ${manual.week}` : "Season-level event"}</p></div><p className="mt-4 text-sm text-slate-600">The rule value will be snapshotted in the event ledger.</p><div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => setConfirmingManual(false)}>Cancel</Button><Button className="sm:w-auto" variant="success" disabled={pending} onClick={confirmManual}>{pending ? "Adding…" : "Confirm Event"}</Button></div></div></div>}
+      {confirmingBulk && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="bulk-confirm-title"><div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6 shadow-2xl"><h2 id="bulk-confirm-title" className="text-xl font-bold">Process All Eligible Finals</h2>{bulkResult && !bulkResult.error ? <div className="mt-4"><p className={`rounded-lg p-3 font-bold ${(bulkResult.failed?.length ?? 0) > 0 ? "bg-amber-100 text-amber-950" : "bg-green-100 text-green-900"}`}>{bulkResult.processed?.length ?? 0} processed · {bulkResult.failed?.length ?? 0} failed</p>{(bulkResult.processed?.length ?? 0) > 0 && <div className="mt-4"><h3 className="font-bold text-green-800">Succeeded</h3><ul className="mt-2 space-y-1 text-sm">{bulkResult.processed?.map((item) => <li key={item.gameId}>{item.label} · {item.eventCount} active event{item.eventCount === 1 ? "" : "s"}</li>)}</ul></div>}{(bulkResult.failed?.length ?? 0) > 0 && <div className="mt-4"><h3 className="font-bold text-red-800">Failed</h3><ul className="mt-2 space-y-2 text-sm">{bulkResult.failed?.map((item) => <li key={item.gameId} className="rounded bg-red-50 p-2"><span className="font-bold">{item.label}</span><br />{item.reason}</li>)}</ul></div>}<Button className="mt-6 sm:w-auto" variant="secondary" onClick={() => setConfirmingBulk(false)}>Close</Button></div> : <><p className="mt-2 text-sm text-slate-700">Each game is rechecked on the server and processed through the existing authoritative scoring path.</p><div className="mt-4 grid grid-cols-2 gap-2 text-sm"><div className="rounded-lg bg-green-50 p-3"><span className="block text-2xl font-black text-green-800">{bulkPlan.eligible.length}</span>will be processed</div><div className="rounded-lg bg-slate-100 p-3"><span className="block text-2xl font-black">{bulkPlan.excluded.alreadyCurrent}</span>already current</div><div className="rounded-lg bg-red-50 p-3"><span className="block text-2xl font-black text-red-800">{bulkPlan.excluded.missingRankingContext}</span>missing ranking context</div><div className="rounded-lg bg-slate-100 p-3"><span className="block text-2xl font-black">{bulkPlan.excluded.notFinal}</span>not final</div><div className="col-span-2 rounded-lg bg-amber-50 p-3"><span className="block text-2xl font-black text-amber-800">{bulkPlan.excluded.otherwiseIneligible}</span>otherwise ineligible</div></div>{bulkResult?.error && <p className="mt-4 rounded-lg bg-red-50 p-3 font-semibold text-red-800" role="alert">{bulkResult.error}</p>}<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => setConfirmingBulk(false)}>Cancel</Button><Button className="sm:w-auto" variant="sports" disabled={pending || bulkPlan.eligible.length === 0} onClick={confirmBulkScoring}>{pending ? "Processing…" : `Process ${bulkPlan.eligible.length} Game${bulkPlan.eligible.length === 1 ? "" : "s"}`}</Button></div></>}</div></div>}
     </main>
   );
 }
