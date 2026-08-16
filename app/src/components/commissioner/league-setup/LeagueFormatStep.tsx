@@ -1,6 +1,7 @@
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import { OWNER_COUNT_OPTIONS } from "@/lib/draft/config";
 
 interface LeagueFormatStepProps {
   ownerCount: string;
@@ -29,7 +30,7 @@ export default function LeagueFormatStep({
           <Select
             label="Number of Owners"
             value={ownerCount}
-            options={["4","6", "8", "10", "12", "14", "16"]}
+            options={OWNER_COUNT_OPTIONS}
             onChange={onOwnerCountChange}
           />
 
