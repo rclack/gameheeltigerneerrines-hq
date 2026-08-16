@@ -7,6 +7,7 @@ import {
 
 const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
 const INVITATION_FROM = "GameHeelTigerNeerRines HQ <invites@gameheeltigerneerrines.com>";
+const RECAP_FROM = INVITATION_FROM;
 
 interface SendLeagueInvitationInput extends LeagueInvitationEmailInput {
   invitationId: string;
@@ -60,4 +61,23 @@ export async function sendLeagueInvitationEmail(input: SendLeagueInvitationInput
   ) {
     throw new InvitationEmailDeliveryError();
   }
+}
+
+export async function sendSundayRecapEmail(input: { recapId: string; memberId: string; to: string; subject: string; html: string; text: string }) {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) throw new InvitationEmailDeliveryError();
+  let response: Response;
+  try {
+    response = await fetch(RESEND_EMAILS_ENDPOINT, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": `sunday-recap/${input.recapId}/${input.memberId}/v1` },
+      body: JSON.stringify({ from: RECAP_FROM, to: [input.to], subject: input.subject, html: input.html, text: input.text }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch { throw new InvitationEmailDeliveryError(); }
+  if (!response.ok) throw new InvitationEmailDeliveryError();
+  const result: unknown = await response.json().catch(() => null);
+  if (!result || typeof result !== "object" || !("id" in result) || typeof result.id !== "string") throw new InvitationEmailDeliveryError();
+  return result.id;
 }

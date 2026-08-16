@@ -2,6 +2,8 @@ import { configuredCronLeagueIds, isAuthorizedCronRequest, runScheduledSyncBatch
 import { CfbdSyncError } from "@/lib/cfbd/diagnostics";
 import { createCronClient } from "@/lib/supabase/cron";
 import { syncScheduledCfbdSchedule } from "@/services/cfbdService";
+import { runScheduledRecapBatch } from "@/lib/recap/cron";
+import { isSundayInEastern, latestRecapWeek, prepareSundayRecap, RecapNotReadyError, sendPreparedSundayRecap } from "@/services/recapService";
 
 export const maxDuration = 300;
 
@@ -28,10 +30,28 @@ export async function GET(request: Request) {
       }
     });
 
-    return Response.json(
-      { ok: outcome.failed === 0, ...outcome },
-      { status: outcome.failed === 0 ? 200 : 500 },
-    );
+    let recaps = { succeeded: 0, skipped: 0, failed: 0 };
+    if (isSundayInEastern(new Date())) {
+      const settings = await supabase.from("league_recap_settings").select("league_id").eq("enabled", true);
+      if (settings.error) throw settings.error;
+      const recapLeagues = settings.data.length ? await supabase.from("leagues").select("*").in("id", settings.data.map((item) => item.league_id)) : { data: [], error: null };
+      if (recapLeagues.error) throw recapLeagues.error;
+      recaps = await runScheduledRecapBatch(recapLeagues.data, async (league) => {
+        const week = await latestRecapWeek(supabase, league);
+        if (!week) return "skipped";
+        try {
+          const recap = await prepareSundayRecap(supabase, league, week, null);
+          const delivery = await sendPreparedSundayRecap(supabase, recap);
+          return delivery.failed ? "skipped" : "succeeded";
+        } catch (error) {
+          if (error instanceof RecapNotReadyError) return "skipped";
+          throw error;
+        }
+      });
+    }
+
+    const ok = outcome.failed === 0 && recaps.failed === 0;
+    return Response.json({ ok, ...outcome, recaps }, { status: ok ? 200 : 500 });
   } catch {
     return Response.json({ ok: false, error: "Scheduled synchronization could not run." }, { status: 503 });
   }

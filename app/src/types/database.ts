@@ -213,6 +213,30 @@ export type Database = {
         Update: { id?: string; league_id?: string; team_id?: string; scoring_rule_id?: string; season?: string; week?: number | null; points?: number; event_date?: string; source_type?: string; source_identifier?: string | null; origin?: string; idempotency_key?: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null };
         Relationships: [];
       };
+      league_recap_settings: {
+        Row: { league_id: string; enabled: boolean; updated_by: string | null; created_at: string; updated_at: string };
+        Insert: { league_id: string; enabled?: boolean; updated_by?: string | null; created_at?: string; updated_at?: string };
+        Update: { league_id?: string; enabled?: boolean; updated_by?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      weekly_recap_snapshots: {
+        Row: { id: string; league_id: string; season: string; week: number; league_member_id: string; total_points: number; standing_position: number; weekly_points: number; prior_position: number | null; created_at: string };
+        Insert: { id?: string; league_id: string; season: string; week: number; league_member_id: string; total_points: number; standing_position: number; weekly_points: number; prior_position?: number | null; created_at?: string };
+        Update: { id?: string; league_id?: string; season?: string; week?: number; league_member_id?: string; total_points?: number; standing_position?: number; weekly_points?: number; prior_position?: number | null; created_at?: string };
+        Relationships: [];
+      };
+      sunday_recaps: {
+        Row: { id: string; league_id: string; season: string; week: number; status: string; factual_payload: Json; narrative: Json | null; model: string | null; error_message: string | null; generated_by: string | null; generated_at: string | null; sent_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id: string; season: string; week: number; status?: string; factual_payload: Json; narrative?: Json | null; model?: string | null; error_message?: string | null; generated_by?: string | null; generated_at?: string | null; sent_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; league_id?: string; season?: string; week?: number; status?: string; factual_payload?: Json; narrative?: Json | null; model?: string | null; error_message?: string | null; generated_by?: string | null; generated_at?: string | null; sent_at?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      sunday_recap_deliveries: {
+        Row: { id: string; recap_id: string; league_member_id: string; status: string; provider_message_id: string | null; error_message: string | null; sent_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; recap_id: string; league_member_id: string; status?: string; provider_message_id?: string | null; error_message?: string | null; sent_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; recap_id?: string; league_member_id?: string; status?: string; provider_message_id?: string | null; error_message?: string | null; sent_at?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -275,6 +299,8 @@ export type Database = {
         Args: { target_league_id: string };
         Returns: Array<{ team_id: string; season: string; wins: number; losses: number; ties: number }>;
       };
+      set_sunday_recap_enabled: { Args: { target_league_id: string; should_enable: boolean }; Returns: Database["public"]["Tables"]["league_recap_settings"]["Row"] };
+      create_weekly_recap_snapshot: { Args: { target_league_id: string; target_week: number }; Returns: Database["public"]["Tables"]["weekly_recap_snapshots"]["Row"][] };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";
@@ -303,3 +329,7 @@ export type ScoringEvent = Database["public"]["Tables"]["scoring_events"]["Row"]
 export type ExternalTeamMapping = Database["public"]["Tables"]["external_team_mappings"]["Row"];
 export type ExternalOpponent = Database["public"]["Tables"]["external_opponents"]["Row"];
 export type ExternalSyncRun = Database["public"]["Tables"]["external_sync_runs"]["Row"];
+export type LeagueRecapSetting = Database["public"]["Tables"]["league_recap_settings"]["Row"];
+export type WeeklyRecapSnapshot = Database["public"]["Tables"]["weekly_recap_snapshots"]["Row"];
+export type SundayRecap = Database["public"]["Tables"]["sunday_recaps"]["Row"];
+export type SundayRecapDelivery = Database["public"]["Tables"]["sunday_recap_deliveries"]["Row"];

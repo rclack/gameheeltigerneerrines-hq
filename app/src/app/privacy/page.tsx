@@ -36,7 +36,7 @@ export default function PrivacyPage() {
           heading: "Services involved",
           content: (
             <p>
-              Supabase provides authentication and database services. Vercel hosts the application. Resend delivers league invitation emails. CollegeFootballData.com (CFBD) supplies college-football schedules, scores, rankings, and related team data. Each provider processes the information needed to perform its role.
+              Supabase provides authentication and database services. Vercel hosts the application. Resend delivers league invitation and recap emails. CollegeFootballData.com (CFBD) supplies college-football schedules, scores, rankings, and related team data. OpenAI may turn verified league results and owner display names into Sunday Recap sportswriting; it does not determine scores or receive account email addresses. Each provider processes the information needed to perform its role.
             </p>
           ),
         },
