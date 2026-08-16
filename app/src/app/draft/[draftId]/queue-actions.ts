@@ -12,6 +12,7 @@ function queueError(message: string) {
   if (message.includes("already been drafted") || message.includes("unavailable")) return "That team is no longer available.";
   if (message.includes("Completed drafts")) return "A completed draft queue cannot be changed.";
   if (message.includes("membership")) return "You are not a member of this draft.";
+  if (message.includes("remaining roster slot")) return "That team cannot fill any of your remaining roster requirements.";
   return "Your queue could not be updated. Refresh and try again.";
 }
 

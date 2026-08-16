@@ -7,6 +7,8 @@ import { useState } from "react";
 import { randomizeOrder, resetDraftAction, saveManualDraftOrderAction, setDraftPausedAction, startDraftAction } from "@/app/commissioner/draft-actions";
 import Button from "@/components/ui/Button";
 import { isCompleteDraftOrder, mergeDraftOrder, moveDraftOrder } from "@/lib/draft/order";
+import type { DraftRosterSlotDetail } from "@/lib/draft/roster-rules";
+import RosterRuleEditor from "./RosterRuleEditor";
 import type { Draft, LeagueInvitation } from "@/types/database";
 import type { DraftParticipant } from "@/services/draftService";
 import type { MemberWithProfile } from "@/services/membershipService";
@@ -19,9 +21,10 @@ interface DraftSetupProps {
   invitations: LeagueInvitation[];
   draft: Draft | null;
   participants: DraftParticipant[];
+  rosterRules: DraftRosterSlotDetail[];
 }
 
-export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, members, invitations, draft, participants }: DraftSetupProps) {
+export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, members, invitations, draft, participants, rosterRules }: DraftSetupProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -160,6 +163,8 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
 
       {members.length !== ownerCount ? <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900">Draft locked: {members.length} of {ownerCount} accepted members.</p> : null}
       {activeInvites.length > 0 ? <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900">Draft locked: {activeInvites.length} pending invitation{activeInvites.length === 1 ? "" : "s"} must be resolved.</p> : null}
+
+      <RosterRuleEditor leagueId={leagueId} ownerCount={ownerCount} teamsPerOwner={teamsPerOwner} draftStatus={draft?.status ?? "not_started"} savedRules={rosterRules} />
 
       {editingManualOrder ? (
         <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:p-5">

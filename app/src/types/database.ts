@@ -154,9 +154,27 @@ export type Database = {
         Relationships: [];
       };
       draft_picks: {
-        Row: { id: string; draft_id: string; league_member_id: string; team_id: string; round_number: number; pick_number: number; overall_pick: number; created_at: string };
-        Insert: { id?: string; draft_id: string; league_member_id: string; team_id: string; round_number: number; pick_number: number; overall_pick: number; created_at?: string };
-        Update: { id?: string; draft_id?: string; league_member_id?: string; team_id?: string; round_number?: number; pick_number?: number; overall_pick?: number; created_at?: string };
+        Row: { id: string; draft_id: string; league_member_id: string; team_id: string; roster_slot_id: string | null; round_number: number; pick_number: number; overall_pick: number; created_at: string };
+        Insert: { id?: string; draft_id: string; league_member_id: string; team_id: string; roster_slot_id?: string | null; round_number: number; pick_number: number; overall_pick: number; created_at?: string };
+        Update: { id?: string; draft_id?: string; league_member_id?: string; team_id?: string; roster_slot_id?: string | null; round_number?: number; pick_number?: number; overall_pick?: number; created_at?: string };
+        Relationships: [];
+      };
+      league_draft_roster_slots: {
+        Row: { id: string; league_id: string; slot_position: number; label: string; unrestricted: boolean; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id: string; slot_position: number; label: string; unrestricted?: boolean; created_at?: string; updated_at?: string };
+        Update: { id?: string; league_id?: string; slot_position?: number; label?: string; unrestricted?: boolean; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      league_draft_roster_slot_criteria: {
+        Row: { id: string; roster_slot_id: string; dimension: "conference" | "classification"; value: string; created_at: string };
+        Insert: { id?: string; roster_slot_id: string; dimension: "conference" | "classification"; value: string; created_at?: string };
+        Update: { id?: string; roster_slot_id?: string; dimension?: "conference" | "classification"; value?: string; created_at?: string };
+        Relationships: [];
+      };
+      team_draft_rule_memberships: {
+        Row: { id: string; season: string; team_id: string; dimension: "conference" | "classification"; value: string; note: string; created_at: string };
+        Insert: { id?: string; season: string; team_id: string; dimension: "conference" | "classification"; value: string; note: string; created_at?: string };
+        Update: { id?: string; season?: string; team_id?: string; dimension?: "conference" | "classification"; value?: string; note?: string; created_at?: string };
         Relationships: [];
       };
       draft_queue_items: {
@@ -267,7 +285,8 @@ export type Database = {
       reset_draft: { Args: { target_draft_id: string }; Returns: boolean };
       start_draft: { Args: { target_draft_id: string }; Returns: boolean };
       set_draft_paused: { Args: { target_draft_id: string; should_pause: boolean }; Returns: Database["public"]["Enums"]["draft_status"] };
-      submit_draft_pick: { Args: { target_draft_id: string; target_team_id: string }; Returns: Database["public"]["Tables"]["draft_picks"]["Row"] };
+      submit_draft_pick: { Args: { target_draft_id: string; target_team_id: string; target_roster_slot_id?: string | null }; Returns: Database["public"]["Tables"]["draft_picks"]["Row"] };
+      save_draft_roster_rules: { Args: { target_league_id: string; target_slots: Json }; Returns: Array<Database["public"]["Tables"]["league_draft_roster_slots"]["Row"]> };
       update_my_team_name: { Args: { target_league_id: string; new_team_name: string }; Returns: boolean };
       add_team_to_my_draft_queue: { Args: { target_draft_id: string; target_team_id: string }; Returns: Database["public"]["Tables"]["draft_queue_items"]["Row"] };
       remove_team_from_my_draft_queue: { Args: { target_queue_item_id: string }; Returns: boolean };
@@ -323,6 +342,9 @@ export type DraftPick = Database["public"]["Tables"]["draft_picks"]["Row"];
 export type DraftQueueItem = Database["public"]["Tables"]["draft_queue_items"]["Row"];
 export type ScoringRule = Database["public"]["Tables"]["scoring_rules"]["Row"];
 export type ConferenceClassification = Database["public"]["Tables"]["conference_classifications"]["Row"];
+export type DraftRosterSlot = Database["public"]["Tables"]["league_draft_roster_slots"]["Row"];
+export type DraftRosterCriterion = Database["public"]["Tables"]["league_draft_roster_slot_criteria"]["Row"];
+export type TeamDraftRuleMembership = Database["public"]["Tables"]["team_draft_rule_memberships"]["Row"];
 export type CfbGame = Database["public"]["Tables"]["cfb_games"]["Row"];
 export type TeamRankingSnapshot = Database["public"]["Tables"]["team_ranking_snapshots"]["Row"];
 export type ScoringEvent = Database["public"]["Tables"]["scoring_events"]["Row"];

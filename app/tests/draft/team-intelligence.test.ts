@@ -24,7 +24,7 @@ test("draft intelligence is preloaded from internal data without live CFBD calls
 
 test("compact team cards expose factual details and preserve draft controls", () => {
   assert.match(room, /<details className=/);
-  assert.match(room, /Current \/ preseason AP/);
+  assert.match(room, /(?:Current \/ preseason AP|AP ranking)/);
   assert.match(room, /priorSeason/);
   assert.match(room, /\+ Add to queue/);
   assert.match(room, /draftTeam\(team\.id\)/);

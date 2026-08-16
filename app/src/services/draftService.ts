@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { Database, Draft, DraftPick, DraftQueueItem, DraftSlot, League, LeagueMember, Profile, Team } from "@/types/database";
+import type { RosterRuleInput, DraftRosterSlotDetail } from "@/lib/draft/roster-rules";
+import type { Database, Draft, DraftPick, DraftQueueItem, DraftSlot, Json, League, LeagueMember, Profile, Team, TeamDraftRuleMembership } from "@/types/database";
 
 export type DraftParticipant = DraftSlot & { member: LeagueMember; profile: Profile | null };
-export type DraftSelection = DraftPick & { team: Team; participant: DraftParticipant | null };
+export type DraftSelection = DraftPick & { team: Team; participant: DraftParticipant | null; rosterSlot: DraftRosterSlotDetail | null };
 export type DraftQueueSelection = DraftQueueItem & { team: Team };
 export interface DraftTeamIntelligence {
   classification: "POWER" | "G5" | "INDEPENDENT" | null;
@@ -21,6 +22,8 @@ export interface DraftRoomData {
   currentUserId: string;
   queue: DraftQueueSelection[];
   teamIntelligence: Record<string, DraftTeamIntelligence>;
+  rosterSlots: DraftRosterSlotDetail[];
+  teamRuleMemberships: TeamDraftRuleMembership[];
 }
 
 export async function getDraftTeamIntelligence(
@@ -113,6 +116,7 @@ export async function getDraftPicks(
   draftId: string,
   participants: DraftParticipant[],
   teams: Team[],
+  rosterSlots: DraftRosterSlotDetail[] = [],
 ) {
   const { data, error } = await supabase
     .from("draft_picks")
@@ -122,9 +126,10 @@ export async function getDraftPicks(
   if (error) throw error;
   const teamById = new Map(teams.map((team) => [team.id, team]));
   const participantByMember = new Map(participants.map((participant) => [participant.league_member_id, participant]));
+  const rosterSlotById = new Map(rosterSlots.map((slot) => [slot.id, slot]));
   return data.flatMap((pick) => {
     const team = teamById.get(pick.team_id);
-    return team ? [{ ...pick, team, participant: participantByMember.get(pick.league_member_id) ?? null }] : [];
+    return team ? [{ ...pick, team, participant: participantByMember.get(pick.league_member_id) ?? null, rosterSlot: pick.roster_slot_id ? rosterSlotById.get(pick.roster_slot_id) ?? null : null }] : [];
   });
 }
 
@@ -201,8 +206,36 @@ export async function pauseLeagueDraft(supabase: SupabaseClient<Database>, draft
   return data;
 }
 
-export async function makeDraftPick(supabase: SupabaseClient<Database>, draftId: string, teamId: string) {
-  const { data, error } = await supabase.rpc("submit_draft_pick", { target_draft_id: draftId, target_team_id: teamId });
+export async function makeDraftPick(supabase: SupabaseClient<Database>, draftId: string, teamId: string, rosterSlotId: string | null) {
+  const { data, error } = await supabase.rpc("submit_draft_pick", { target_draft_id: draftId, target_team_id: teamId, target_roster_slot_id: rosterSlotId });
+  if (error) throw error;
+  return data;
+}
+
+export async function getDraftRosterRules(supabase: SupabaseClient<Database>, leagueId: string) {
+  const [slotsResult, criteriaResult] = await Promise.all([
+    supabase.from("league_draft_roster_slots").select("*").eq("league_id", leagueId).order("slot_position"),
+    supabase.from("league_draft_roster_slot_criteria").select("*"),
+  ]);
+  if (slotsResult.error) throw slotsResult.error;
+  if (criteriaResult.error) throw criteriaResult.error;
+  const criteriaBySlot = new Map<string, typeof criteriaResult.data>();
+  for (const criterion of criteriaResult.data) {
+    const existing = criteriaBySlot.get(criterion.roster_slot_id) ?? [];
+    existing.push(criterion);
+    criteriaBySlot.set(criterion.roster_slot_id, existing);
+  }
+  return slotsResult.data.map((slot) => ({ ...slot, criteria: criteriaBySlot.get(slot.id) ?? [] }));
+}
+
+export async function getTeamDraftRuleMemberships(supabase: SupabaseClient<Database>, season: string) {
+  const { data, error } = await supabase.from("team_draft_rule_memberships").select("*").eq("season", season);
+  if (error) throw error;
+  return data;
+}
+
+export async function saveDraftRosterRules(supabase: SupabaseClient<Database>, leagueId: string, slots: RosterRuleInput[]) {
+  const { data, error } = await supabase.rpc("save_draft_roster_rules", { target_league_id: leagueId, target_slots: slots as unknown as Json });
   if (error) throw error;
   return data;
 }

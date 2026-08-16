@@ -12,6 +12,7 @@
     "test:season": "node --no-warnings --experimental-strip-types scripts/season-integration.mjs",
     "test:cfbd": "node --no-warnings --test --experimental-strip-types tests/cfbd/*.test.ts",
     "test:draft-intelligence": "node --no-warnings --test --experimental-strip-types tests/draft/team-intelligence.test.ts",
+    "test:draft": "node --no-warnings --test --experimental-strip-types tests/draft/*.test.ts",
     "test:recap": "node --no-warnings --test --experimental-strip-types tests/recap/*.test.ts"
   },
   "dependencies": {

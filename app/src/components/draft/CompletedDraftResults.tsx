@@ -85,6 +85,7 @@ export default function CompletedDraftResults({ data, returningToLeague }: Compl
                         <div className="flex min-w-0 items-center gap-3"><TeamLogo team={pick.team} size="sm" decorative /><div className="min-w-0">
                           <p className="truncate font-bold text-slate-100">{pick.team.school_name}</p>
                           <p className="mt-0.5 text-xs text-slate-500">{pick.team.conference}</p>
+                          {pick.rosterSlot ? <p className="mt-0.5 text-xs font-bold text-blue-300">{pick.rosterSlot.label}</p> : null}
                         </div></div>
                         <p className="shrink-0 text-right text-xs font-bold text-slate-400">Round {pick.round_number}<br /><span className="font-mono text-orange-300">Pick #{pick.overall_pick}</span></p>
                       </li>
@@ -116,6 +117,7 @@ export default function CompletedDraftResults({ data, returningToLeague }: Compl
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-bold">{pick.team.school_name}</p>
                         <p className="truncate text-sm text-slate-400">{pick.participant?.profile?.display_name ?? "Owner"}{pick.participant?.member.team_name ? ` · ${pick.participant.member.team_name}` : ""}</p>
+                        {pick.rosterSlot ? <p className="truncate text-xs font-bold text-blue-300">Filled {pick.rosterSlot.label}</p> : null}
                       </div>
                     </li>
                   ))}

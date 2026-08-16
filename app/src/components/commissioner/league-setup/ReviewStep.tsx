@@ -47,6 +47,7 @@ export default function ReviewStep({
           <div className="rounded-lg bg-slate-800 p-4">
             <p className="text-sm text-slate-400">Teams per Owner</p>
             <p className="text-xl font-bold text-white">{teamsPerOwner}</p>
+            <p className="mt-1 text-xs text-slate-400">Roster restrictions: unrestricted until configured in Commissioner Draft Setup.</p>
           </div>
 
           <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">

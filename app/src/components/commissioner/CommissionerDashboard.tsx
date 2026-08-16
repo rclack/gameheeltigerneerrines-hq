@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { DraftParticipant } from "@/services/draftService";
 import type { LeagueRoster } from "@/services/membershipService";
 import type { Draft, League } from "@/types/database";
+import type { DraftRosterSlotDetail } from "@/lib/draft/roster-rules";
 import DraftSetup from "./DraftSetup";
 import OwnerManagement from "./OwnerManagement";
 
@@ -13,6 +14,7 @@ interface CommissionerDashboardProps {
   participants?: DraftParticipant[];
   pickCount?: number;
   siteOrigin?: string;
+  rosterRules?: DraftRosterSlotDetail[];
 }
 
 function formatDraftStatus(status: Draft["status"] | undefined) {
@@ -27,6 +29,7 @@ export default function CommissionerDashboard({
   participants = [],
   pickCount = 0,
   siteOrigin,
+  rosterRules = [],
 }: CommissionerDashboardProps) {
   const activeInvitations = roster?.invitations.filter(
     (invitation) => invitation.status === "pending" && new Date(invitation.expires_at) > new Date(),
@@ -306,6 +309,7 @@ export default function CommissionerDashboard({
             invitations={roster.invitations}
             draft={draft}
             participants={participants}
+            rosterRules={rosterRules}
           />
         ) : null}
 
