@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { requestPasswordRecovery } from "@/app/auth/actions";
+import AuthPageFrame from "@/components/auth/AuthPageFrame";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 
 interface ForgotPasswordPageProps {
   searchParams: Promise<{ sent?: string }>;
@@ -13,9 +13,7 @@ export default async function ForgotPasswordPage({ searchParams }: ForgotPasswor
   const requestSubmitted = sent === "1";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-950 to-slate-900 px-4 py-12">
-      <div className="w-full max-w-md">
-        <Card title="Reset your password">
+    <AuthPageFrame eyebrow="Account recovery" title="Reset your password" introduction="Get a secure link sent to the email address connected with your pool account.">
           {requestSubmitted ? (
             <div className="space-y-5 text-slate-300">
               <p role="status" className="rounded-lg bg-green-950/70 p-4 text-sm leading-6 text-green-200">
@@ -57,8 +55,6 @@ export default async function ForgotPasswordPage({ searchParams }: ForgotPasswor
               </p>
             </div>
           )}
-        </Card>
-      </div>
-    </main>
+    </AuthPageFrame>
   );
 }

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+import AuthPageFrame from "@/components/auth/AuthPageFrame";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import { safeAuthReturnPath } from "@/lib/auth/redirects";
 import { createClient } from "@/lib/supabase/client";
 
@@ -104,9 +104,11 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin, noti
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-950 to-slate-900 px-4 py-12">
-      <div className="w-full max-w-md">
-        <Card title={isSignup ? "Create your account" : "Sign In"}>
+    <AuthPageFrame
+      eyebrow={isSignup ? "Join the pool" : "Welcome back"}
+      title={isSignup ? "Create your account" : "Sign in for kickoff"}
+      introduction={isSignup ? "Set up your owner profile, then follow an invitation or open your league." : "Open your league, check Saturday's games, and see where you stand."}
+    >
           <form className="space-y-5" onSubmit={handleSubmit}>
             {isSignup && (
               <label className="block space-y-2 text-sm font-semibold text-slate-300">
@@ -176,7 +178,7 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin, noti
             {error && <p role="alert" className="rounded-lg bg-red-950/70 p-3 text-sm text-red-200">{error}</p>}
             {message && <p role="status" className="rounded-lg bg-green-950/70 p-3 text-sm text-green-200">{message}</p>}
 
-            <Button type="submit" variant="sports" disabled={isSubmitting}>
+            <Button type="submit" variant="sports" disabled={isSubmitting} className="min-h-12 text-base font-black">
               {isSubmitting ? "Please wait…" : isSignup ? "Create Account" : "Sign In"}
             </Button>
           </form>
@@ -190,8 +192,6 @@ export default function AuthForm({ mode, nextPath = "/leagues", siteOrigin, noti
               {isSignup ? "Sign in" : "Sign up"}
             </Link>
           </p>
-        </Card>
-      </div>
-    </main>
+    </AuthPageFrame>
   );
 }

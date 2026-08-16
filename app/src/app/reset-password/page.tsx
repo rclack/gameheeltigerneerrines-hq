@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { updateRecoveredPassword } from "@/app/auth/actions";
+import AuthPageFrame from "@/components/auth/AuthPageFrame";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/server";
 
 interface ResetPasswordPageProps {
@@ -22,9 +22,7 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
   const recoveryUnavailable = !user || error === "invalid";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-950 to-slate-900 px-4 py-12">
-      <div className="w-full max-w-md">
-        <Card title="Choose a new password">
+    <AuthPageFrame eyebrow="Account recovery" title="Choose a new password" introduction="Set a new password, then head back to your league.">
           {recoveryUnavailable ? (
             <div className="space-y-5 text-slate-300">
               <p role="alert" className="rounded-lg bg-amber-950/70 p-4 text-sm leading-6 text-amber-100">
@@ -67,8 +65,6 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
               <Button type="submit" variant="sports">Update Password</Button>
             </form>
           )}
-        </Card>
-      </div>
-    </main>
+    </AuthPageFrame>
   );
 }

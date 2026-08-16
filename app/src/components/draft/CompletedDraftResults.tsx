@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import TeamLogo from "@/components/team/TeamLogo";
 import type { DraftRoomData, DraftSelection } from "@/services/draftService";
 
 interface CompletedDraftResultsProps {
@@ -81,10 +82,10 @@ export default function CompletedDraftResults({ data, returningToLeague }: Compl
                   <ol className="divide-y divide-slate-800">
                     {ownerPicks.map((pick) => (
                       <li key={pick.id} className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-5">
-                        <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-3"><TeamLogo team={pick.team} size="sm" decorative /><div className="min-w-0">
                           <p className="truncate font-bold text-slate-100">{pick.team.school_name}</p>
                           <p className="mt-0.5 text-xs text-slate-500">{pick.team.conference}</p>
-                        </div>
+                        </div></div>
                         <p className="shrink-0 text-right text-xs font-bold text-slate-400">Round {pick.round_number}<br /><span className="font-mono text-orange-300">Pick #{pick.overall_pick}</span></p>
                       </li>
                     ))}
@@ -111,7 +112,8 @@ export default function CompletedDraftResults({ data, returningToLeague }: Compl
                   {roundPicks.map((pick) => (
                     <li key={pick.id} className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
                       <span className="w-10 shrink-0 font-mono text-sm font-black text-orange-400">#{pick.overall_pick}</span>
-                      <div className="min-w-0">
+                      <TeamLogo team={pick.team} size="sm" decorative />
+                      <div className="min-w-0 flex-1">
                         <p className="truncate font-bold">{pick.team.school_name}</p>
                         <p className="truncate text-sm text-slate-400">{pick.participant?.profile?.display_name ?? "Owner"}{pick.participant?.member.team_name ? ` · ${pick.participant.member.team_name}` : ""}</p>
                       </div>

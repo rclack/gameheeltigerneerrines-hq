@@ -1,18 +1,16 @@
 import Link from "next/link";
 
 import { switchInvitationAccount } from "@/app/invite/[token]/actions";
+import AuthPageFrame from "@/components/auth/AuthPageFrame";
 import AcceptInvitation from "@/components/invitations/AcceptInvitation";
-import Card from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/server";
 import { inspectInvitationByToken } from "@/services/invitationService";
 
 function InvitationShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-950 to-slate-900 px-4 py-12">
-      <div className="w-full max-w-lg">
-        <Card title="League Invitation">{children}</Card>
-      </div>
-    </main>
+    <AuthPageFrame eyebrow="You're on the roster" title="League invitation" introduction="Use the invited email address to join your owner group and get ready for the draft." maxWidth="lg">
+      {children}
+    </AuthPageFrame>
   );
 }
 
