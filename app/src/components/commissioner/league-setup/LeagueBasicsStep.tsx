@@ -23,7 +23,7 @@ export default function LeagueBasicsStep({
   onNext,
 }: LeagueBasicsStepProps) {
   return (
-    <div className="mx-auto mt-16 max-w-2xl">
+    <div className="mx-auto max-w-2xl">
       <Card title="League Basics">
         <div className="space-y-6">
 
@@ -45,8 +45,9 @@ export default function LeagueBasicsStep({
             onChange={onSeasonChange}
           />
 
-          <div className="flex justify-between">
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
   <Button
+    className="sm:w-auto"
     variant="secondary"
     onClick={onBack}
   >
@@ -54,6 +55,7 @@ export default function LeagueBasicsStep({
   </Button>
 
   <Button
+    className="sm:w-auto"
     variant="sports"
     onClick={onNext}
     disabled={leagueName.trim().length < 2}

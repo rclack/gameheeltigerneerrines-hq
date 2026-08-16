@@ -27,6 +27,7 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmingStart, setConfirmingStart] = useState(false);
   const [editingManualOrder, setEditingManualOrder] = useState(false);
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const activeInvites = invitations.filter((invite) => invite.status === "pending" && new Date(invite.expires_at) > new Date());
@@ -79,6 +80,25 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
             if (!result.error) setConfirmingReset(false);
             return result;
           })}>{pending ? "Resetting…" : "Reset Draft"}</Button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const startDialog = confirmingStart && draft ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="start-draft-title" aria-describedby="start-draft-warning">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-700">Final readiness check</p>
+        <h3 id="start-draft-title" className="mt-1 text-xl font-black text-slate-950">Start the Draft?</h3>
+        <p id="start-draft-warning" className="mt-3 text-slate-700">This opens the live draft for all owners using the saved order below. The board contains {teamsPerOwner} rounds and {totalPicks} total picks.</p>
+        <div className="mt-4 rounded-lg bg-slate-100 p-3 text-sm font-semibold text-slate-700">{ownerCount} owners ready · {participants.length} draft positions saved</div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => setConfirmingStart(false)}>Cancel</Button>
+          <Button className="sm:w-auto" variant="sports" disabled={pending} onClick={() => run(async () => {
+            const result = await startDraftAction(leagueId, draft.id);
+            if (!result.error) setConfirmingStart(false);
+            return result;
+          })}>{pending ? "Starting…" : "Start Live Draft"}</Button>
         </div>
       </div>
     </div>
@@ -197,7 +217,7 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
           <>
             <Button className="sm:w-auto" disabled={pending || members.length === 0} onClick={() => run(() => randomizeOrder(leagueId), () => setEditingManualOrder(false))}>Randomize Draft Order</Button>
             <Button className="sm:w-auto" variant="secondary" disabled={pending || members.length === 0} onClick={beginManualOrder}>Set Draft Order Manually</Button>
-            <Button className="sm:w-auto" variant="sports" disabled={pending || !draft || !ready} onClick={() => draft && run(() => startDraftAction(leagueId, draft.id))}>Start Draft</Button>
+            <Button className="sm:w-auto" variant="sports" disabled={pending || !draft || !ready} onClick={() => setConfirmingStart(true)}>Start Draft</Button>
           </>
         )}
         {draft?.status === "live" && <Button className="sm:w-auto" variant="danger" disabled={pending} onClick={() => run(() => setDraftPausedAction(leagueId, draft.id, true))}>Pause Draft</Button>}
@@ -210,6 +230,7 @@ export default function DraftSetup({ leagueId, ownerCount, teamsPerOwner, member
       </div>
 
       {resetDialog}
+      {startDialog}
     </section>
   );
 }

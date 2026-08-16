@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import Button from "@/components/ui/Button";
 import type { DraftParticipant } from "@/services/draftService";
 import type { LeagueRoster } from "@/services/membershipService";
 import type { Draft, League } from "@/types/database";
@@ -39,19 +38,37 @@ export default function CommissionerDashboard({
   const draftStatus = formatDraftStatus(draft?.status);
   const draftIsOpen = draft && draft.status !== "not_started";
   const draftIsComplete = draft?.status === "complete";
+  const ownersReady = memberCount === league.owner_count && activeInvitations.length === 0;
+  const draftOrderReady = participants.length === league.owner_count;
   const operationsFocus = draftIsComplete
     ? "results"
     : memberCount < league.owner_count || activeInvitations.length > 0
       ? "owners"
       : draft?.status === "live" || draft?.status === "paused"
         ? "admin"
-        : "league";
+        : "draft";
   const operationCardClass = (module: typeof operationsFocus) =>
     `flex min-h-56 flex-col rounded-2xl bg-white p-5 shadow-sm transition ${
       operationsFocus === module
         ? "border-2 border-orange-300 ring-4 ring-orange-100/70"
         : "border border-slate-200"
     }`;
+  const journey = [
+    { label: "League created", complete: true, current: !ownersReady },
+    { label: "Owners ready", complete: ownersReady, current: ownersReady && !draftOrderReady },
+    { label: "Draft order", complete: draftOrderReady, current: draftOrderReady && !draftIsOpen },
+    { label: "Draft night", complete: draftIsComplete, current: Boolean(draftIsOpen && !draftIsComplete) },
+    { label: "Season", complete: false, current: draftIsComplete },
+  ];
+  const nextAction = !ownersReady
+    ? { message: "Fill every owner spot and resolve pending invitations.", href: "#owner-management", label: "Manage owners" }
+    : !draftOrderReady
+      ? { message: "Save a random or manual draft order for every accepted owner.", href: "#draft-operations", label: "Set draft order" }
+      : !draftIsOpen
+        ? { message: "Review the saved order, then start the draft when every owner is ready.", href: "#draft-operations", label: "Review draft setup" }
+        : !draftIsComplete
+          ? { message: "The draft is underway. Monitor the room and keep picks moving.", href: `/draft/${draft.id}`, label: "Enter draft room" }
+          : { message: "Draft setup is complete. Schedule sync and scoring are your active season operations.", href: "/commissioner/scoring", label: "Open scoring desk" };
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -133,6 +150,34 @@ export default function CommissionerDashboard({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <section className="mb-10 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="league-journey-title">
+          <div className="border-b border-slate-200 px-5 py-4 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:px-6">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Commissioner checklist</p>
+              <h2 id="league-journey-title" className="mt-1 text-xl font-black tracking-tight text-slate-950">League Journey</h2>
+            </div>
+            <a href={nextAction.href} className="mt-3 inline-flex rounded-lg bg-[#0b2b59] px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 sm:mt-0">
+              {nextAction.label}
+            </a>
+          </div>
+          <ol className="grid gap-px bg-slate-200 sm:grid-cols-5">
+            {journey.map((stage, index) => (
+              <li key={stage.label} className={`bg-white px-4 py-4 ${stage.current ? "shadow-[inset_0_-3px_0_#f97316]" : ""}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${stage.complete ? "bg-emerald-100 text-emerald-800" : stage.current ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-500"}`} aria-hidden="true">
+                    {stage.complete ? "✓" : index + 1}
+                  </span>
+                  <div>
+                    <p className={`text-sm font-black ${stage.current ? "text-slate-950" : "text-slate-600"}`}>{stage.label}</p>
+                    <p className="text-xs text-slate-500">{stage.complete ? "Complete" : stage.current ? "Current step" : "Coming next"}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p className="bg-slate-50 px-5 py-3 text-sm font-medium text-slate-700 sm:px-6"><span className="font-black text-slate-950">Next:</span> {nextAction.message}</p>
+        </section>
+
         <section aria-labelledby="league-overview-title">
           <div className="mb-4 flex items-end justify-between gap-4">
             <div>
@@ -197,17 +242,14 @@ export default function CommissionerDashboard({
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <article className={operationCardClass("league")}>
+            <article className={operationCardClass("draft")}>
               <div className="flex items-center justify-between gap-2">
-                <span className="w-fit rounded-md bg-blue-50 px-2 py-1 text-xs font-black uppercase tracking-wider text-blue-800">League</span>
-                {operationsFocus === "league" ? <span className="text-[0.65rem] font-black uppercase tracking-widest text-orange-700">Up next</span> : null}
+                <span className="w-fit rounded-md bg-blue-50 px-2 py-1 text-xs font-black uppercase tracking-wider text-blue-800">Draft</span>
+                {operationsFocus === "draft" ? <span className="text-[0.65rem] font-black uppercase tracking-widest text-orange-700">Up next</span> : null}
               </div>
-              <h3 className="mt-4 text-lg font-black">League Management</h3>
-              <p className="mt-2 text-sm leading-5 text-slate-500">Manage the league framework and season configuration.</p>
-              <div className="mt-auto space-y-2 pt-5">
-                <Button variant="primary">Create League</Button>
-                <Button variant="secondary">League Settings</Button>
-              </div>
+              <h3 className="mt-4 text-lg font-black">Draft Setup</h3>
+              <p className="mt-2 text-sm leading-5 text-slate-500">Set the owner order, confirm readiness, and run draft night.</p>
+              <a href="#draft-operations" className="mt-auto block rounded-lg bg-[#0b2b59] px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">{draftIsComplete ? "Review Draft" : draftIsOpen ? "Manage Draft" : "Open Draft Setup"}</a>
             </article>
 
             <article className={operationCardClass("owners")}>

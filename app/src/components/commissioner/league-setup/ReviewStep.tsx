@@ -25,7 +25,7 @@ export default function ReviewStep({
     error,
 }: ReviewStepProps) {
   return (
-    <div className="mx-auto mt-16 max-w-2xl">
+    <div className="mx-auto max-w-2xl">
       <Card title="Ready for Kickoff?">
         <div className="space-y-4">
 
@@ -49,8 +49,9 @@ export default function ReviewStep({
             <p className="text-xl font-bold text-white">{teamsPerOwner}</p>
           </div>
 
-          <div className="flex justify-between pt-4">
+          <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
   <Button
+    className="sm:w-auto"
     variant="secondary"
     onClick={onBack}
   >
@@ -58,11 +59,12 @@ export default function ReviewStep({
   </Button>
 
   <Button
+    className="sm:w-auto"
     variant="success"
     onClick={onCreateLeague}
     disabled={isSubmitting}
   >
-    {isSubmitting ? "Creating League…" : "Create League 🏈"}
+    {isSubmitting ? "Creating League…" : "Create League"}
   </Button>
 </div>
 

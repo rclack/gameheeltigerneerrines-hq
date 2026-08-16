@@ -21,6 +21,12 @@ interface OwnerManagementProps {
 }
 
 const initialState: InvitationActionState = {};
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatInvitationExpiry(value: string) {
+  const date = new Date(value);
+  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+}
 
 function CopyInviteButton({ token, siteOrigin }: { token: string; siteOrigin: string }) {
   const [copied, setCopied] = useState(false);
@@ -40,6 +46,7 @@ function CopyInviteButton({ token, siteOrigin }: { token: string; siteOrigin: st
 
 function RevokeButton({ invitationId }: { invitationId: string }) {
   const [pending, setPending] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function revoke() {
@@ -53,9 +60,14 @@ function RevokeButton({ invitationId }: { invitationId: string }) {
 
   return (
     <div className="text-right">
-      <button type="button" disabled={pending} onClick={revoke} className="rounded text-sm font-bold text-red-700 hover:text-red-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:opacity-50">
-        {pending ? "Revoking…" : "Revoke"}
-      </button>
+      {confirming ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" disabled={pending} onClick={() => setConfirming(false)} className="rounded px-2 py-1 text-xs font-bold text-slate-600 hover:text-slate-900">Cancel</button>
+          <button type="button" disabled={pending} onClick={revoke} className="rounded bg-red-700 px-2 py-1 text-xs font-black text-white hover:bg-red-800 disabled:opacity-50">{pending ? "Revoking…" : "Confirm revoke"}</button>
+        </div>
+      ) : (
+        <button type="button" disabled={pending} onClick={() => setConfirming(true)} className="rounded text-sm font-bold text-red-700 hover:text-red-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:opacity-50">Revoke</button>
+      )}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
@@ -221,7 +233,7 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{invitation.invited_email}</p>
-                    <p className="text-xs text-slate-500">Expires {new Date(invitation.expires_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-500">Expires {formatInvitationExpiry(invitation.expires_at)}</p>
                   </div>
                   <RevokeButton invitationId={invitation.id} />
                 </div>
@@ -230,7 +242,7 @@ export default function OwnerManagement({ leagueId, ownerCount, members, invitat
                   <RetryInvitationEmailButton invitationId={invitation.id} />
                 </div>
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Email delivery is server-side. Copy Invite Link remains the reliable manual fallback.
+                  If email delivery is delayed, Copy Invite Link is the reliable fallback.
                 </p>
                 <p className="mt-2 truncate rounded bg-slate-100 px-2 py-1.5 font-mono text-xs text-slate-500">
                   {inviteUrl}

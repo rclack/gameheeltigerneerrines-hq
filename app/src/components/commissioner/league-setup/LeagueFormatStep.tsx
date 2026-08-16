@@ -23,7 +23,7 @@ export default function LeagueFormatStep({
   onNext,
 }: LeagueFormatStepProps) {
   return (
-    <div className="mx-auto mt-16 max-w-2xl">
+    <div className="mx-auto max-w-2xl">
       <Card title="League Format">
         <div className="space-y-6">
 
@@ -40,8 +40,13 @@ export default function LeagueFormatStep({
             options={["4", "5", "6", "7", "8"]}
             onChange={onTeamsPerOwnerChange}
           />
-          <div className="flex justify-between">
+          <div className="rounded-lg border border-blue-400/20 bg-blue-950/40 p-4">
+            <p className="text-sm font-bold text-white">Draft board: {Number(ownerCount) * Number(teamsPerOwner)} total picks</p>
+            <p className="mt-1 text-xs leading-5 text-slate-300">Each owner drafts {teamsPerOwner} college teams across {teamsPerOwner} snake-draft rounds.</p>
+          </div>
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
             <Button
+              className="sm:w-auto"
               variant="secondary"
               onClick={onBack}
             >
@@ -49,6 +54,7 @@ export default function LeagueFormatStep({
             </Button>
 
             <Button
+              className="sm:w-auto"
               variant="sports"
               onClick={onNext}
             >

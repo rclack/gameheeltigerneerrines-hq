@@ -9,19 +9,19 @@ export default function WelcomeStep({
   onNext,
 }: WelcomeStepProps) {
   return (
-    <div className="mx-auto mt-16 max-w-2xl">
+    <div className="mx-auto max-w-2xl">
       <Card>
         <div className="space-y-8 text-center">
 
-          <div className="text-6xl">🏈</div>
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-orange-300/40 bg-orange-500 text-4xl shadow-lg shadow-orange-950/30" aria-hidden="true">🏈</div>
 
           <div>
             <h1 className="text-4xl font-bold text-white">
-              Welcome to
+              Your league starts here
             </h1>
 
             <h2 className="mt-2 text-3xl font-extrabold text-blue-400">
-              GameHeelTigerNeerRines HQ
+              GameHeelTigerNeerRines
             </h2>
           </div>
 
@@ -31,15 +31,14 @@ export default function WelcomeStep({
           </p>
 
           <p className="text-slate-400">
-            We&apos;ll have your league ready for kickoff in
-            about two minutes.
+            League creation takes only a moment. You&apos;ll invite owners and set the draft order from Commissioner HQ afterward.
           </p>
 
           <Button
             variant="sports"
             onClick={onNext}
           >
-            Kick Off a New Season →
+            Start League Setup
           </Button>
 
         </div>
