@@ -4,11 +4,33 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { updateTeamName } from "@/services/draftService";
-import { saveMyWeeklyStarters } from "@/services/lineupService";
+import { saveMyWeeklyCaptain, saveMyWeeklyStarters } from "@/services/lineupService";
 
 export interface TeamNameState { error?: string; success?: string }
 export interface FavoriteTeamState { error?: string; success?: string; favoriteTeamId?: string | null }
 export interface LineupActionState { error?: string; success?: string }
+
+export async function setWeeklyCaptain(_state: LineupActionState, formData: FormData): Promise<LineupActionState> {
+  const leagueId = String(formData.get("leagueId") ?? "");
+  const lineupId = String(formData.get("lineupId") ?? "");
+  const intent = String(formData.get("captainIntent") ?? "select");
+  const entryId = intent === "clear" ? null : String(formData.get("entryId") ?? "");
+  if (!leagueId || !lineupId || (intent !== "clear" && !entryId)) return { error: "Choose a valid Captain." };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in and try again." };
+  try {
+    await saveMyWeeklyCaptain(supabase, lineupId, entryId, crypto.randomUUID());
+    revalidatePath(`/league/${leagueId}`);
+    revalidatePath(`/league/${leagueId}/score`);
+    return { success: entryId ? "Captain saved." : "Captain cleared." };
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "";
+    if (message.includes("locked")) return { error: "That Captain has locked at kickoff. Refresh to see the current lineup." };
+    if (message.includes("opportunities remaining")) return { error: "That team has no Captain opportunities remaining." };
+    return { error: "Your Captain choice could not be saved." };
+  }
+}
 
 export async function swapWeeklyStarter(_state: LineupActionState, formData: FormData): Promise<LineupActionState> {
   const leagueId = String(formData.get("leagueId") ?? "");

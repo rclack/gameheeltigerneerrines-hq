@@ -88,6 +88,9 @@ export function buildVerifiedRecapPayload(input: {
       finalScore: teamScore === null || opponentScore === null ? null : `${teamScore}-${opponentScore}`,
       result: teamScore === null || opponentScore === null ? null : teamScore > opponentScore ? "win" : "loss",
       scoringReason: event.rule.display_name,
+      basePoints: event.base_points ?? event.points,
+      scoringMultiplier: event.scoring_multiplier ?? 1,
+      captainApplied: event.captain_at_scoring ?? false,
       points: event.points,
       opponentPregameRank: ranking?.rank ?? null,
       rankingSource: ranking?.ranking_source ?? null,
@@ -107,7 +110,8 @@ export function buildVerifiedRecapPayload(input: {
     if (!event) continue;
     const opponent = event.opponentName ? ` against ${event.opponentPregameRank ? `#${event.opponentPregameRank} ` : ""}${event.opponentName}` : "";
     const result = event.result && event.finalScore ? ` in a ${event.finalScore} ${event.result}` : "";
-    facts.push({ id: `event:${event.id}`, label: "Impact Play", text: `${event.ownerName}'s ${event.teamName} recorded ${event.scoringReason} (${signed(event.points)})${opponent}${result}.`, priority, eventId: event.id, memberId: ownerByTeam.get(input.events.find((item) => item.id === event.id)?.team_id ?? "") ?? null });
+    const scoring = event.captainApplied ? ` as Captain (${signed(event.basePoints)} × 2 = ${signed(event.points)})` : ` (${signed(event.points)})`;
+    facts.push({ id: `event:${event.id}`, label: "Impact Play", text: `${event.ownerName}'s ${event.teamName} recorded ${event.scoringReason}${scoring}${opponent}${result}.`, priority, eventId: event.id, memberId: ownerByTeam.get(input.events.find((item) => item.id === event.id)?.team_id ?? "") ?? null });
   }
   if (!facts.length) facts.push({ id: `week:${input.week}:quiet`, label: "Week in Review", text: `Week ${input.week} produced no active scoring changes in the league.`, priority: 10, eventId: null, memberId: null });
 

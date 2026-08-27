@@ -13,7 +13,14 @@ export interface WeeklyLineupEntryDetail extends WeeklyLineupEntry {
 export interface WeeklyLineupDetail {
   lineup: WeeklyLineup;
   entries: WeeklyLineupEntryDetail[];
+  captain: {
+    active: boolean;
+    policy: "optional" | "required";
+    usage: CaptainUsage[];
+  };
 }
+
+export type CaptainUsage = Database["public"]["Functions"]["get_my_captain_usage"]["Returns"][number];
 
 export async function getMyMaterializedLineupWeeks(
   supabase: SupabaseClient<Database>,
@@ -38,7 +45,7 @@ export async function getOrMaterializeMyWeeklyLineup(
 ): Promise<WeeklyLineupDetail | null> {
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
-    .select("season,starters_per_week,lineups_enabled_from_week")
+    .select("season,starters_per_week,lineups_enabled_from_week,captain_uses_per_team,captain_usage_policy,captain_enabled_from_week")
     .eq("id", leagueId)
     .single();
   if (leagueError) throw leagueError;
@@ -73,12 +80,15 @@ export async function getOrMaterializeMyWeeklyLineup(
   if (entriesError) throw entriesError;
   const teamIds = entries.map((entry) => entry.team_id);
   const gameIds = entries.flatMap((entry) => entry.game_id ? [entry.game_id] : []);
-  const [teamsResult, gamesResult] = await Promise.all([
+  const captainActive = league.captain_uses_per_team !== null && league.captain_enabled_from_week !== null && week >= league.captain_enabled_from_week;
+  const [teamsResult, gamesResult, usageResult] = await Promise.all([
     supabase.from("teams").select("*").in("id", teamIds),
     gameIds.length ? supabase.from("cfb_games").select("id,status").in("id", gameIds) : Promise.resolve({ data: [], error: null }),
+    captainActive ? supabase.rpc("get_my_captain_usage", { target_lineup_id: lineup.id }) : Promise.resolve({ data: [], error: null }),
   ]);
   if (teamsResult.error) throw teamsResult.error;
   if (gamesResult.error) throw gamesResult.error;
+  if (usageResult.error) throw usageResult.error;
   const teams = new Map(teamsResult.data.map((team) => [team.id, team]));
   const statuses = new Map(gamesResult.data.map((game) => [game.id, game.status]));
   return {
@@ -87,6 +97,7 @@ export async function getOrMaterializeMyWeeklyLineup(
       const team = teams.get(entry.team_id);
       return team ? [{ ...entry, team, gameStatus: entry.game_id ? statuses.get(entry.game_id) ?? null : null }] : [];
     }),
+    captain: { active: captainActive, policy: league.captain_usage_policy, usage: usageResult.data ?? [] },
   };
 }
 
@@ -103,5 +114,21 @@ export async function saveMyWeeklyStarters(
   });
   if (error) throw error;
   if (data === null) throw new Error("A requested team has already locked");
+  return data;
+}
+
+export async function saveMyWeeklyCaptain(
+  supabase: SupabaseClient<Database>,
+  lineupId: string,
+  entryId: string | null,
+  requestKey: string,
+) {
+  const { data, error } = await supabase.rpc("set_weekly_lineup_captain", {
+    target_lineup_id: lineupId,
+    target_entry_id: entryId,
+    target_request_key: requestKey,
+  });
+  if (error) throw error;
+  if (data === null) throw new Error("The Captain selection has already locked");
   return data;
 }

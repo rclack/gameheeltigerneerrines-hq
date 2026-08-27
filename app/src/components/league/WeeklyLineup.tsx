@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 
-import { swapWeeklyStarter, type LineupActionState } from "@/app/league/[leagueId]/actions";
+import { setWeeklyCaptain, swapWeeklyStarter, type LineupActionState } from "@/app/league/[leagueId]/actions";
 import TeamLogo from "@/components/team/TeamLogo";
 import type { WeeklyLineupDetail, WeeklyLineupEntryDetail } from "@/services/lineupService";
 
@@ -24,10 +24,10 @@ function stateLabel(entry: WeeklyLineupEntryDetail, now: number) {
 function TeamRow({ entry, now, children }: { entry: WeeklyLineupEntryDetail; now: number; children?: React.ReactNode }) {
   const label = stateLabel(entry, now);
   const counts = entry.status === "starter";
-  return <article className={`rounded-xl border p-4 ${counts ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"}`}>
+  return <article className={`rounded-xl border p-4 ${entry.is_captain ? "border-amber-400 bg-amber-50 shadow-sm ring-2 ring-amber-200" : counts ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"}`}>
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3"><TeamLogo team={entry.team} size="md" decorative /><div className="min-w-0"><h4 className="truncate font-black text-blue-950">{entry.team.school_name}</h4><p className="text-sm text-slate-600">{kickoffLabel(entry.lock_at)}</p></div></div>
-      <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${label === "Locked" ? "bg-slate-800 text-white" : label === "Unlocked" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}>{label}</span>
+      <div className="flex shrink-0 flex-col items-end gap-1">{entry.is_captain && <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-black uppercase text-amber-950">★ Captain{entry.captain_locked_at ? " · Locked" : ""}</span>}<span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${label === "Locked" ? "bg-slate-800 text-white" : label === "Unlocked" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}>{label}</span></div>
     </div>
     {entry.status !== "no_game" && <p className={`mt-3 text-xs font-black uppercase tracking-wide ${counts ? "text-green-700" : "text-slate-500"}`}>{counts ? "Starting — Points Count" : "Bench — Result Does Not Count"}</p>}
     {children}
@@ -36,21 +36,27 @@ function TeamRow({ entry, now, children }: { entry: WeeklyLineupEntryDetail; now
 
 export default function WeeklyLineup({ leagueId, detail, availableWeeks, nowIso }: { leagueId: string; detail: WeeklyLineupDetail; availableWeeks: number[]; nowIso: string }) {
   const [state, action, pending] = useActionState<LineupActionState, FormData>(swapWeeklyStarter, {});
+  const [captainState, captainAction, captainPending] = useActionState<LineupActionState, FormData>(setWeeklyCaptain, {});
   const starters = detail.entries.filter((entry) => entry.status === "starter" && entry.gameStatus !== "canceled" && entry.gameStatus !== "postponed");
   const bench = detail.entries.filter((entry) => entry.status === "bench" && entry.gameStatus !== "canceled" && entry.gameStatus !== "postponed");
   const unavailable = detail.entries.filter((entry) => entry.status === "no_game" || entry.gameStatus === "canceled");
   const now = new Date(nowIso).getTime();
   const editableStarters = starters.filter((entry) => stateLabel(entry, now) === "Unlocked");
+  const captain = detail.entries.find((entry) => entry.is_captain);
+  const usage = new Map(detail.captain.usage.map((item) => [item.team_id, item]));
 
   return <section className="rounded-2xl border-2 border-blue-300 bg-white p-5 shadow-lg" aria-labelledby="weekly-lineup-heading">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-orange-600">Week {detail.lineup.week} Lineup</p><h2 id="weekly-lineup-heading" className="mt-1 text-2xl font-black text-blue-950">This Week&apos;s Lineup</h2></div><p className="text-sm font-bold text-slate-600">Locks individually at kickoff</p></div>
     {availableWeeks.length > 1 && <nav aria-label="Choose lineup week" className="mt-4 flex flex-wrap gap-2">{availableWeeks.map((week) => <Link key={week} href={`/league/${leagueId}?lineupWeek=${week}`} aria-current={week === detail.lineup.week ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-lg px-4 py-2 text-sm font-black ${week === detail.lineup.week ? "bg-blue-900 text-white" : "border border-slate-300 bg-white text-blue-900"}`}>Week {week}</Link>)}</nav>}
     <div className="mt-5 space-y-5">
-      <div><h3 className="mb-3 text-sm font-black uppercase tracking-widest text-blue-900">Starters · {starters.length}/{detail.lineup.starters_limit_snapshot}</h3><div className="grid gap-3 sm:grid-cols-2">{starters.map((entry) => <TeamRow key={entry.id} entry={entry} now={now} />)}{Array.from({ length: Math.max(0, detail.lineup.starters_limit_snapshot - starters.length) }, (_, index) => <div key={`empty-${index}`} className="rounded-xl border-2 border-dashed border-slate-300 p-4 text-sm font-bold text-slate-500">Empty starting slot</div>)}</div></div>
+      <div><h3 className="mb-3 text-sm font-black uppercase tracking-widest text-blue-900">Starters · {starters.length}/{detail.lineup.starters_limit_snapshot}</h3>{detail.captain.active && !captain && <p className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">No Captain selected this week.</p>}<div className="grid gap-3 sm:grid-cols-2">{starters.map((entry) => { const entryUsage = usage.get(entry.team_id); const unlocked = stateLabel(entry, now) === "Unlocked"; return <TeamRow key={entry.id} entry={entry} now={now}>{detail.captain.active && unlocked && (entry.is_captain || (entryUsage?.remaining ?? 0) > 0) && <form action={captainAction} className="mt-3"><input type="hidden" name="leagueId" value={leagueId}/><input type="hidden" name="lineupId" value={detail.lineup.id}/><input type="hidden" name="entryId" value={entry.id}/><input type="hidden" name="captainIntent" value={entry.is_captain ? "clear" : "select"}/><button disabled={captainPending} className={`min-h-11 w-full rounded-lg px-4 py-2 text-sm font-black ${entry.is_captain ? "border border-amber-500 bg-white text-amber-900" : "bg-amber-500 text-amber-950"}`}>{captainPending ? "Saving…" : entry.is_captain ? "Clear Captain" : "★ Make Captain"}</button></form>}</TeamRow>; })}{Array.from({ length: Math.max(0, detail.lineup.starters_limit_snapshot - starters.length) }, (_, index) => <div key={`empty-${index}`} className="rounded-xl border-2 border-dashed border-slate-300 p-4 text-sm font-bold text-slate-500">Empty starting slot</div>)}</div></div>
       <div><h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-600">Bench · {bench.length}</h3><div className="grid gap-3 sm:grid-cols-2">{bench.map((entry) => <TeamRow key={entry.id} entry={entry} now={now}>{stateLabel(entry, now) === "Unlocked" && editableStarters.length > 0 && <form action={action} className="mt-3 grid gap-2"><input type="hidden" name="leagueId" value={leagueId}/><input type="hidden" name="lineupId" value={detail.lineup.id}/><input type="hidden" name="startTeamId" value={entry.team_id}/><label className="text-xs font-bold text-slate-600">Start instead of<select name="benchTeamId" required className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 font-semibold">{editableStarters.map((starter) => <option key={starter.id} value={starter.team_id}>{starter.team.school_name}</option>)}</select></label><button disabled={pending} className="min-h-11 rounded-lg bg-blue-900 px-4 py-2 font-black text-white disabled:opacity-60">{pending ? "Saving…" : "Start This Team"}</button></form>}</TeamRow>)}</div></div>
       {unavailable.length > 0 && <div><h3 className="mb-3 text-sm font-black uppercase tracking-widest text-amber-800">Unavailable</h3><div className="grid gap-3 sm:grid-cols-2">{unavailable.map((entry) => <TeamRow key={entry.id} entry={entry} now={now}/>)}</div></div>}
+      {detail.captain.active && <div><h3 className="mb-3 text-sm font-black uppercase tracking-widest text-amber-800">Captain Season Tracker</h3><div className="overflow-x-auto rounded-xl border border-slate-200"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600"><tr><th className="p-3">Team</th><th className="p-3 text-center">Allowed</th><th className="p-3 text-center">Used</th><th className="p-3 text-center">Reserved</th><th className="p-3 text-center">Remaining</th></tr></thead><tbody>{detail.entries.map((entry) => { const item = usage.get(entry.team_id); return <tr key={entry.id} className="border-t"><th className="p-3 font-bold text-blue-950">{entry.team.school_name}</th><td className="p-3 text-center">{item?.allowed ?? 0}</td><td className="p-3 text-center">{item?.used ?? 0}</td><td className="p-3 text-center">{item?.reserved ?? 0}</td><td className="p-3 text-center font-black">{item?.remaining ?? 0}</td></tr>; })}</tbody></table></div></div>}
     </div>
     {state.error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{state.error}</p>}
     {state.success && <p role="status" className="mt-4 rounded-lg bg-green-50 p-3 text-sm font-bold text-green-800">{state.success}</p>}
+    {captainState.error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{captainState.error}</p>}
+    {captainState.success && <p role="status" className="mt-4 rounded-lg bg-green-50 p-3 text-sm font-bold text-green-800">{captainState.success}</p>}
   </section>;
 }

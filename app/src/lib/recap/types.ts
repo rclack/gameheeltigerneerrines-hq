@@ -19,6 +19,9 @@ export interface RecapEvent {
   finalScore: string | null;
   result: "win" | "loss" | null;
   scoringReason: string;
+  basePoints: number;
+  scoringMultiplier: 1 | 2;
+  captainApplied: boolean;
   points: number;
   opponentPregameRank: number | null;
   rankingSource: string | null;

@@ -2,11 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database, ScoringEvent, ScoringRule, Team } from "@/types/database";
 
-export type ScoringEventDetail = Omit<ScoringEvent, "league_member_id" | "weekly_lineup_entry_id" | "lineup_status_at_scoring" | "counts_for_standings"> & {
+export type ScoringEventDetail = Omit<ScoringEvent, "league_member_id" | "weekly_lineup_entry_id" | "lineup_status_at_scoring" | "counts_for_standings" | "base_points" | "scoring_multiplier" | "captain_at_scoring"> & {
   league_member_id?: string | null;
   weekly_lineup_entry_id?: string | null;
   lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null;
   counts_for_standings?: boolean;
+  base_points?: number;
+  scoring_multiplier?: 1 | 2;
+  captain_at_scoring?: boolean;
   rule: ScoringRule;
   team: Team;
 };

@@ -43,6 +43,12 @@ test("normal week uses only verified snapshots, active scoring, game results, an
   assert.equal(result.nextWeek, 5);
 });
 
+test("Captain recap facts use deterministic base, multiplier, and final points", () => {
+  const result = payload([], [scoringEvent({ points: 8, base_points: 4, scoring_multiplier: 2, captain_at_scoring: true })]);
+  assert.deepEqual({ base: result.events[0].basePoints, multiplier: result.events[0].scoringMultiplier, captain: result.events[0].captainApplied, final: result.events[0].points }, { base: 4, multiplier: 2, captain: true, final: 8 });
+  assert.match(result.facts.find((fact) => fact.id === "event:event-1")!.text, /as Captain \(\+4 × 2 = \+8\)/);
+});
+
 test("zero-event weeks produce a factual quiet-week card", () => {
   const result = payload([{ weekly_points: 0, prior_position: 1 }, { weekly_points: 0, prior_position: 2 }], []);
   assert.deepEqual(result.events, []);

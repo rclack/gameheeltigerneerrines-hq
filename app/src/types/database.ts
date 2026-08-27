@@ -43,6 +43,9 @@ export type Database = {
           teams_per_owner: number;
           starters_per_week: number | null;
           lineups_enabled_from_week: number | null;
+          captain_uses_per_team: number | null;
+          captain_usage_policy: "optional" | "required";
+          captain_enabled_from_week: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -55,6 +58,9 @@ export type Database = {
           teams_per_owner: number;
           starters_per_week?: number | null;
           lineups_enabled_from_week?: number | null;
+          captain_uses_per_team?: number | null;
+          captain_usage_policy?: "optional" | "required";
+          captain_enabled_from_week?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -67,6 +73,9 @@ export type Database = {
           teams_per_owner?: number;
           starters_per_week?: number | null;
           lineups_enabled_from_week?: number | null;
+          captain_uses_per_team?: number | null;
+          captain_usage_policy?: "optional" | "required";
+          captain_enabled_from_week?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -238,9 +247,9 @@ export type Database = {
         Relationships: [];
       };
       scoring_events: {
-        Row: { id: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week: number | null; points: number; event_date: string; source_type: string; source_identifier: string | null; origin: string; idempotency_key: string; notes: string | null; metadata: Json; created_by: string | null; created_at: string; voided_at: string | null; voided_by: string | null; void_reason: string | null; league_member_id: string | null; weekly_lineup_entry_id: string | null; lineup_status_at_scoring: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings: boolean };
-        Insert: { id?: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week?: number | null; points: number; event_date: string; source_type: string; source_identifier?: string | null; origin: string; idempotency_key: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null; league_member_id?: string | null; weekly_lineup_entry_id?: string | null; lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings?: boolean };
-        Update: { id?: string; league_id?: string; team_id?: string; scoring_rule_id?: string; season?: string; week?: number | null; points?: number; event_date?: string; source_type?: string; source_identifier?: string | null; origin?: string; idempotency_key?: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null; league_member_id?: string | null; weekly_lineup_entry_id?: string | null; lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings?: boolean };
+        Row: { id: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week: number | null; points: number; base_points: number; scoring_multiplier: 1 | 2; captain_at_scoring: boolean; event_date: string; source_type: string; source_identifier: string | null; origin: string; idempotency_key: string; notes: string | null; metadata: Json; created_by: string | null; created_at: string; voided_at: string | null; voided_by: string | null; void_reason: string | null; league_member_id: string | null; weekly_lineup_entry_id: string | null; lineup_status_at_scoring: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings: boolean };
+        Insert: { id?: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week?: number | null; points: number; base_points?: number; scoring_multiplier?: 1 | 2; captain_at_scoring?: boolean; event_date: string; source_type: string; source_identifier?: string | null; origin: string; idempotency_key: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null; league_member_id?: string | null; weekly_lineup_entry_id?: string | null; lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings?: boolean };
+        Update: { id?: string; league_id?: string; team_id?: string; scoring_rule_id?: string; season?: string; week?: number | null; points?: number; base_points?: number; scoring_multiplier?: 1 | 2; captain_at_scoring?: boolean; event_date?: string; source_type?: string; source_identifier?: string | null; origin?: string; idempotency_key?: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null; league_member_id?: string | null; weekly_lineup_entry_id?: string | null; lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings?: boolean };
         Relationships: [];
       };
       weekly_lineups: {
@@ -250,13 +259,19 @@ export type Database = {
         Relationships: [];
       };
       weekly_lineup_entries: {
-        Row: { id: string; weekly_lineup_id: string; draft_pick_id: string; team_id: string; game_id: string | null; status: "starter" | "bench" | "no_game"; selection_source: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; kickoff_at_snapshot: string | null; lock_at: string | null; locked_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; weekly_lineup_id: string; draft_pick_id: string; team_id: string; game_id?: string | null; status: "starter" | "bench" | "no_game"; selection_source: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; kickoff_at_snapshot?: string | null; lock_at?: string | null; locked_at?: string | null; created_at?: string; updated_at?: string };
-        Update: { status?: "starter" | "bench" | "no_game"; selection_source?: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; game_id?: string | null; kickoff_at_snapshot?: string | null; lock_at?: string | null; locked_at?: string | null; updated_at?: string };
+        Row: { id: string; weekly_lineup_id: string; draft_pick_id: string; team_id: string; game_id: string | null; status: "starter" | "bench" | "no_game"; selection_source: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; kickoff_at_snapshot: string | null; lock_at: string | null; locked_at: string | null; is_captain: boolean; captain_selected_at: string | null; captain_locked_at: string | null; captain_selection_source: "owner" | "commissioner" | null; created_at: string; updated_at: string };
+        Insert: { id?: string; weekly_lineup_id: string; draft_pick_id: string; team_id: string; game_id?: string | null; status: "starter" | "bench" | "no_game"; selection_source: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; kickoff_at_snapshot?: string | null; lock_at?: string | null; locked_at?: string | null; is_captain?: boolean; captain_selected_at?: string | null; captain_locked_at?: string | null; captain_selection_source?: "owner" | "commissioner" | null; created_at?: string; updated_at?: string };
+        Update: { status?: "starter" | "bench" | "no_game"; selection_source?: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; game_id?: string | null; kickoff_at_snapshot?: string | null; lock_at?: string | null; locked_at?: string | null; is_captain?: boolean; captain_selected_at?: string | null; captain_locked_at?: string | null; captain_selection_source?: "owner" | "commissioner" | null; updated_at?: string };
         Relationships: [];
       };
       weekly_lineup_changes: {
         Row: { id: string; weekly_lineup_entry_id: string; from_status: "starter" | "bench" | "no_game" | null; to_status: "starter" | "bench" | "no_game"; change_source: "materialization" | "schedule" | "owner" | "commissioner"; reason: string | null; actor_id: string | null; request_key: string; kickoff_at_snapshot: string | null; changed_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      weekly_captain_changes: {
+        Row: { id: string; weekly_lineup_id: string; from_weekly_lineup_entry_id: string | null; to_weekly_lineup_entry_id: string | null; action: "select" | "change" | "clear" | "lock" | "commissioner_correct" | "schedule_clear"; change_source: "owner" | "commissioner" | "schedule" | "scoring"; reason: string | null; actor_id: string | null; request_key: string; kickoff_at_snapshot: string | null; changed_at: string };
         Insert: never;
         Update: never;
         Relationships: [];
@@ -351,6 +366,9 @@ export type Database = {
       set_sunday_recap_enabled: { Args: { target_league_id: string; should_enable: boolean }; Returns: Database["public"]["Tables"]["league_recap_settings"]["Row"] };
       materialize_weekly_lineup: { Args: { target_league_id: string; target_week: number; target_member_id?: string | null }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"][] };
       set_weekly_lineup_starters: { Args: { target_lineup_id: string; target_starter_team_ids: string[]; target_request_key: string }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"] | null };
+      set_weekly_lineup_captain: { Args: { target_lineup_id: string; target_entry_id: string | null; target_request_key: string }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"] | null };
+      get_my_captain_usage: { Args: { target_lineup_id: string }; Returns: Array<{ draft_pick_id: string; team_id: string; allowed: number; used: number; reserved: number; remaining: number }> };
+      correct_weekly_lineup_captain: { Args: { target_lineup_id: string; target_entry_id: string | null; target_reason: string }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"] };
       correct_weekly_lineup_entry: { Args: { target_entry_id: string; target_status: string; target_reason: string }; Returns: Database["public"]["Tables"]["weekly_lineup_entries"]["Row"] };
       create_weekly_recap_snapshot: { Args: { target_league_id: string; target_week: number }; Returns: Database["public"]["Tables"]["weekly_recap_snapshots"]["Row"][] };
       create_league_creation_request: { Args: { target_name: string; target_season: string; target_owner_count: number; target_teams_per_owner: number; target_roster_rules: Json; target_approve_token_hash: string; target_deny_token_hash: string }; Returns: Database["public"]["Tables"]["league_creation_requests"]["Row"] };
