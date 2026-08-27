@@ -68,7 +68,7 @@ export function buildVerifiedRecapPayload(input: {
     };
   }).sort((left, right) => left.position - right.position || left.ownerName.localeCompare(right.ownerName));
 
-  const events: RecapEvent[] = input.events.filter((event) => event.week === input.week).flatMap((event) => {
+  const events: RecapEvent[] = input.events.filter((event) => event.week === input.week && event.counts_for_standings !== false).flatMap((event) => {
     const memberId = ownerByTeam.get(event.team_id);
     const member = memberId ? memberById.get(memberId) : null;
     const team = teamById.get(event.team_id);

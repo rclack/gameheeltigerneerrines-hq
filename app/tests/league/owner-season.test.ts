@@ -7,7 +7,7 @@ const team = (id: string) => ({ id, school_name: id, short_name: id, abbreviatio
 const participant = (id: string) => ({ kind: "internal" as const, id, displayName: id, classification: "fbs" as const, team: team(id) });
 const game = (id: string, status: string, start: string, homeScore: number | null = null, awayScore: number | null = null) => ({
   id, league_id: "league", external_id: id, external_provider: "cfbd", data_source: "provider", provider_payload_hash: null,
-  provider_synced_at: null, manual_override: false, season: "2026", week: 1, game_date: start.slice(0, 10), start_at: start,
+  provider_synced_at: null, manual_override: false, season: "2026", provider_week: 1, week: 1, game_date: start.slice(0, 10), start_at: start,
   home_team_id: "A", away_team_id: "B", home_external_opponent_id: null, away_external_opponent_id: null,
   home_score: homeScore, away_score: awayScore, status, neutral_site: false, postseason: false, scoring_fingerprint: null,
   scored_at: null, created_at: "", updated_at: "", homeParticipant: participant("A"), awayParticipant: participant("B"), rankings: [],

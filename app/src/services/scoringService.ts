@@ -2,7 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database, ScoringEvent, ScoringRule, Team } from "@/types/database";
 
-export type ScoringEventDetail = ScoringEvent & { rule: ScoringRule; team: Team };
+export type ScoringEventDetail = Omit<ScoringEvent, "league_member_id" | "weekly_lineup_entry_id" | "lineup_status_at_scoring" | "counts_for_standings"> & {
+  league_member_id?: string | null;
+  weekly_lineup_entry_id?: string | null;
+  lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null;
+  counts_for_standings?: boolean;
+  rule: ScoringRule;
+  team: Team;
+};
 
 export interface ScoringEventFilters {
   teamId?: string;
@@ -51,7 +58,7 @@ export async function getLeagueScoringEvents(
     if (!filters.includeVoided) query = query.is("voided_at", null);
     if (filters.teamId) query = query.eq("team_id", filters.teamId);
     if (filters.teamIds?.length) query = query.in("team_id", filters.teamIds);
-    if (filters.week) query = query.eq("week", filters.week);
+    if (filters.week !== undefined) query = query.eq("week", filters.week);
     const { data, error } = await query;
     if (error) throw error;
     events.push(...data);

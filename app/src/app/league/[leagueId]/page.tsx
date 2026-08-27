@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import FavoriteTeamSelector from "@/components/league/FavoriteTeamSelector";
 import TeamNameForm from "@/components/league/TeamNameForm";
+import WeeklyLineup from "@/components/league/WeeklyLineup";
 import TeamLogo from "@/components/team/TeamLogo";
 import { favoriteTeamTheme } from "@/lib/league/favorite-team-theme";
 import {
@@ -23,6 +24,7 @@ import {
 import { formatGameParticipant, getLeagueGames, type GameDetail } from "@/services/gameService";
 import { getLeagueRoster } from "@/services/membershipService";
 import { getLeagueStandings } from "@/services/standingsService";
+import { getMyMaterializedLineupWeeks, getOrMaterializeMyWeeklyLineup } from "@/services/lineupService";
 import { getActiveTeams } from "@/services/teamService";
 
 function pointsLabel(points: number) {
@@ -46,8 +48,9 @@ function gameStatusLabel(status: string) {
   return "Upcoming";
 }
 
-export default async function LeaguePage({ params }: { params: Promise<{ leagueId: string }> }) {
+export default async function LeaguePage({ params, searchParams }: { params: Promise<{ leagueId: string }>; searchParams: Promise<{ lineupWeek?: string }> }) {
   const { leagueId } = await params;
+  const requestedLineupWeekValue = (await searchParams).lineupWeek;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/league/${leagueId}`)}`);
@@ -86,6 +89,13 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
     : {};
   const myTeamIds = myPicks.map((pick) => pick.team_id);
   const relevantGames = selectRelevantOwnerGames(games, myTeamIds, new Date());
+  const materializedLineupWeeks = draft?.status === "complete" ? await getMyMaterializedLineupWeeks(supabase, league.id, membership.id) : [];
+  const requestedLineupWeek = requestedLineupWeekValue !== undefined && /^\d+$/.test(requestedLineupWeekValue) ? Number(requestedLineupWeekValue) : null;
+  const defaultLineupWeek = relevantGames.find((game) => game.status !== "final" && game.status !== "canceled")?.week ?? standings.selectedWeek;
+  const lineupWeek = requestedLineupWeek !== null && materializedLineupWeeks.includes(requestedLineupWeek) ? requestedLineupWeek : defaultLineupWeek;
+  const weeklyLineup = draft?.status === "complete"
+    ? await getOrMaterializeMyWeeklyLineup(supabase, league.id, membership.id, lineupWeek)
+    : null;
   const scoring = ownerScoringSummary(myPicks, standings.events);
   const myStanding = standings.rows.find((row) => row.memberId === membership.id);
   const favoriteTeam = teams.find((team) => team.id === profile.favorite_team_id) ?? null;
@@ -156,6 +166,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <section className="space-y-6">
+            {weeklyLineup && <WeeklyLineup leagueId={league.id} detail={weeklyLineup} availableWeeks={materializedLineupWeeks} nowIso={new Date().toISOString()} />}
             {draftIsPrimary && (
               <section className="rounded-2xl border-2 border-orange-400 bg-white p-5 shadow-lg" aria-labelledby="draft-heading">
                 <div className="flex items-start justify-between gap-3">

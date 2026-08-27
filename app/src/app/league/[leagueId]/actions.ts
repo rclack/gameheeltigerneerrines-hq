@@ -4,9 +4,36 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { updateTeamName } from "@/services/draftService";
+import { saveMyWeeklyStarters } from "@/services/lineupService";
 
 export interface TeamNameState { error?: string; success?: string }
 export interface FavoriteTeamState { error?: string; success?: string; favoriteTeamId?: string | null }
+export interface LineupActionState { error?: string; success?: string }
+
+export async function swapWeeklyStarter(_state: LineupActionState, formData: FormData): Promise<LineupActionState> {
+  const leagueId = String(formData.get("leagueId") ?? "");
+  const lineupId = String(formData.get("lineupId") ?? "");
+  const startTeamId = String(formData.get("startTeamId") ?? "");
+  const benchTeamId = String(formData.get("benchTeamId") ?? "");
+  if (!leagueId || !lineupId || !startTeamId || !benchTeamId || startTeamId === benchTeamId) return { error: "Choose a valid starter swap." };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in and try again." };
+  const { data: entries, error } = await supabase.from("weekly_lineup_entries").select("team_id,status").eq("weekly_lineup_id", lineupId);
+  if (error) return { error: "Your lineup could not be loaded." };
+  const starterIds = entries.filter((entry) => entry.status === "starter").map((entry) => entry.team_id);
+  if (!starterIds.includes(benchTeamId) || entries.find((entry) => entry.team_id === startTeamId)?.status !== "bench") return { error: "That swap is no longer available. Refresh and try again." };
+  try {
+    await saveMyWeeklyStarters(supabase, lineupId, [...starterIds.filter((id) => id !== benchTeamId), startTeamId], crypto.randomUUID());
+    revalidatePath(`/league/${leagueId}`);
+    revalidatePath(`/league/${leagueId}/score`);
+    revalidatePath(`/league/${leagueId}/standings`);
+    return { success: "Lineup saved." };
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "";
+    return { error: message.includes("locked") ? "That team has locked at kickoff. Refresh to see the current lineup." : "Your lineup could not be saved." };
+  }
+}
 
 export async function updateOwnerTeamName(
   leagueId: string,

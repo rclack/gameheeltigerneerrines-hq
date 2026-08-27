@@ -12,6 +12,7 @@ export type { StandingRow } from "@/lib/league/standings-experience";
 export interface TeamScoreBreakdown {
   team: Team;
   totalPoints: number;
+  benchPoints: number;
   events: ScoringEventDetail[];
 }
 
@@ -34,7 +35,8 @@ export async function getLeagueStandings(
     getActiveTeams(supabase),
   ]);
   const availableWeeks = [...new Set(events.flatMap((event) => event.week === null ? [] : [event.week]))].sort((a, b) => a - b);
-  const selectedWeek = requestedWeek && requestedWeek > 0 ? requestedWeek : (availableWeeks.at(-1) ?? 1);
+  const countingEvents = events.filter((event) => event.counts_for_standings !== false);
+  const selectedWeek = requestedWeek !== undefined && requestedWeek >= 0 ? requestedWeek : (availableWeeks.at(-1) ?? 0);
   const members = roster.members.map((member) => ({
     memberId: member.id,
     userId: member.user_id,
@@ -42,12 +44,12 @@ export async function getLeagueStandings(
     poolTeamName: member.team_name,
     favoriteTeamId: member.profile?.favorite_team_id ?? null,
   }));
-  if (!draft) return { rows: deriveStandingRows(members, [], events, teams, selectedWeek), events, availableWeeks, selectedWeek };
+  if (!draft) return { rows: deriveStandingRows(members, [], countingEvents, teams, selectedWeek), events: countingEvents, availableWeeks, selectedWeek };
 
   const participants = await getDraftParticipants(supabase, draft.id, roster.members);
   const picks = await getDraftPicks(supabase, draft.id, participants, teams);
-  const rows = deriveStandingRows(members, picks, events, teams, selectedWeek);
-  return { rows, events, availableWeeks, selectedWeek };
+  const rows = deriveStandingRows(members, picks, countingEvents, teams, selectedWeek);
+  return { rows, events: countingEvents, availableWeeks, selectedWeek };
 }
 
 export async function getMemberScoreBreakdown(
@@ -69,6 +71,11 @@ export async function getMemberScoreBreakdown(
     const team = teamMap.get(pick.team_id);
     if (!team) return [];
     const teamEvents = events.filter((event) => event.team_id === team.id);
-    return [{ team, events: teamEvents, totalPoints: teamEvents.reduce((sum, event) => sum + event.points, 0) }];
+    return [{
+      team,
+      events: teamEvents,
+      totalPoints: teamEvents.filter((event) => event.counts_for_standings !== false).reduce((sum, event) => sum + event.points, 0),
+      benchPoints: teamEvents.filter((event) => event.counts_for_standings === false).reduce((sum, event) => sum + event.points, 0),
+    }];
   });
 }

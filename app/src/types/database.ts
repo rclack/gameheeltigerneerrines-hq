@@ -41,6 +41,8 @@ export type Database = {
           commissioner_id: string;
           owner_count: number;
           teams_per_owner: number;
+          starters_per_week: number | null;
+          lineups_enabled_from_week: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -51,6 +53,8 @@ export type Database = {
           commissioner_id: string;
           owner_count: number;
           teams_per_owner: number;
+          starters_per_week?: number | null;
+          lineups_enabled_from_week?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -61,6 +65,8 @@ export type Database = {
           commissioner_id?: string;
           owner_count?: number;
           teams_per_owner?: number;
+          starters_per_week?: number | null;
+          lineups_enabled_from_week?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -202,9 +208,9 @@ export type Database = {
         Relationships: [];
       };
       cfb_games: {
-        Row: { id: string; league_id: string; external_id: string | null; external_provider: string | null; data_source: string; provider_payload_hash: string | null; provider_synced_at: string | null; manual_override: boolean; season: string; week: number; game_date: string; start_at: string | null; home_team_id: string | null; away_team_id: string | null; home_external_opponent_id: string | null; away_external_opponent_id: string | null; home_score: number | null; away_score: number | null; status: string; neutral_site: boolean; postseason: boolean; scoring_fingerprint: string | null; scored_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; league_id: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season: string; week: number; game_date: string; start_at?: string | null; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
-        Update: { id?: string; league_id?: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season?: string; week?: number; game_date?: string; start_at?: string | null; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; league_id: string; external_id: string | null; external_provider: string | null; data_source: string; provider_payload_hash: string | null; provider_synced_at: string | null; manual_override: boolean; season: string; provider_week: number | null; week: number; game_date: string; start_at: string | null; home_team_id: string | null; away_team_id: string | null; home_external_opponent_id: string | null; away_external_opponent_id: string | null; home_score: number | null; away_score: number | null; status: string; neutral_site: boolean; postseason: boolean; scoring_fingerprint: string | null; scored_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season: string; provider_week?: number | null; week: number; game_date: string; start_at?: string | null; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; league_id?: string; external_id?: string | null; external_provider?: string | null; data_source?: string; provider_payload_hash?: string | null; provider_synced_at?: string | null; manual_override?: boolean; season?: string; provider_week?: number | null; week?: number; game_date?: string; start_at?: string | null; home_team_id?: string | null; away_team_id?: string | null; home_external_opponent_id?: string | null; away_external_opponent_id?: string | null; home_score?: number | null; away_score?: number | null; status?: string; neutral_site?: boolean; postseason?: boolean; scoring_fingerprint?: string | null; scored_at?: string | null; created_at?: string; updated_at?: string };
         Relationships: [];
       };
       external_opponents: {
@@ -226,15 +232,33 @@ export type Database = {
         Relationships: [];
       };
       team_ranking_snapshots: {
-        Row: { id: string; league_id: string; game_id: string | null; team_id: string; season: string; week: number; ranking_source: string; rank: number | null; captured_at: string; created_at: string };
-        Insert: { id?: string; league_id: string; game_id?: string | null; team_id: string; season: string; week: number; ranking_source: string; rank?: number | null; captured_at?: string; created_at?: string };
-        Update: { id?: string; league_id?: string; game_id?: string | null; team_id?: string; season?: string; week?: number; ranking_source?: string; rank?: number | null; captured_at?: string; created_at?: string };
+        Row: { id: string; league_id: string; game_id: string | null; team_id: string; season: string; provider_week: number | null; week: number; ranking_source: string; rank: number | null; captured_at: string; created_at: string };
+        Insert: { id?: string; league_id: string; game_id?: string | null; team_id: string; season: string; provider_week?: number | null; week: number; ranking_source: string; rank?: number | null; captured_at?: string; created_at?: string };
+        Update: { id?: string; league_id?: string; game_id?: string | null; team_id?: string; season?: string; provider_week?: number | null; week?: number; ranking_source?: string; rank?: number | null; captured_at?: string; created_at?: string };
         Relationships: [];
       };
       scoring_events: {
-        Row: { id: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week: number | null; points: number; event_date: string; source_type: string; source_identifier: string | null; origin: string; idempotency_key: string; notes: string | null; metadata: Json; created_by: string | null; created_at: string; voided_at: string | null; voided_by: string | null; void_reason: string | null };
-        Insert: { id?: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week?: number | null; points: number; event_date: string; source_type: string; source_identifier?: string | null; origin: string; idempotency_key: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null };
-        Update: { id?: string; league_id?: string; team_id?: string; scoring_rule_id?: string; season?: string; week?: number | null; points?: number; event_date?: string; source_type?: string; source_identifier?: string | null; origin?: string; idempotency_key?: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null };
+        Row: { id: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week: number | null; points: number; event_date: string; source_type: string; source_identifier: string | null; origin: string; idempotency_key: string; notes: string | null; metadata: Json; created_by: string | null; created_at: string; voided_at: string | null; voided_by: string | null; void_reason: string | null; league_member_id: string | null; weekly_lineup_entry_id: string | null; lineup_status_at_scoring: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings: boolean };
+        Insert: { id?: string; league_id: string; team_id: string; scoring_rule_id: string; season: string; week?: number | null; points: number; event_date: string; source_type: string; source_identifier?: string | null; origin: string; idempotency_key: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null; league_member_id?: string | null; weekly_lineup_entry_id?: string | null; lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings?: boolean };
+        Update: { id?: string; league_id?: string; team_id?: string; scoring_rule_id?: string; season?: string; week?: number | null; points?: number; event_date?: string; source_type?: string; source_identifier?: string | null; origin?: string; idempotency_key?: string; notes?: string | null; metadata?: Json; created_by?: string | null; created_at?: string; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null; league_member_id?: string | null; weekly_lineup_entry_id?: string | null; lineup_status_at_scoring?: "starter" | "bench" | "no_game" | "legacy" | null; counts_for_standings?: boolean };
+        Relationships: [];
+      };
+      weekly_lineups: {
+        Row: { id: string; league_id: string; league_member_id: string; season: string; week: number; starters_limit_snapshot: number; materialization_version: number; materialized_at: string; created_at: string; updated_at: string };
+        Insert: { id?: string; league_id: string; league_member_id: string; season: string; week: number; starters_limit_snapshot: number; materialization_version?: number; materialized_at?: string; created_at?: string; updated_at?: string };
+        Update: { starters_limit_snapshot?: number; materialization_version?: number; materialized_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      weekly_lineup_entries: {
+        Row: { id: string; weekly_lineup_id: string; draft_pick_id: string; team_id: string; game_id: string | null; status: "starter" | "bench" | "no_game"; selection_source: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; kickoff_at_snapshot: string | null; lock_at: string | null; locked_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; weekly_lineup_id: string; draft_pick_id: string; team_id: string; game_id?: string | null; status: "starter" | "bench" | "no_game"; selection_source: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; kickoff_at_snapshot?: string | null; lock_at?: string | null; locked_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { status?: "starter" | "bench" | "no_game"; selection_source?: "week0_auto" | "week1_auto" | "carry_forward" | "bye_replacement" | "owner" | "commissioner"; game_id?: string | null; kickoff_at_snapshot?: string | null; lock_at?: string | null; locked_at?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+      weekly_lineup_changes: {
+        Row: { id: string; weekly_lineup_entry_id: string; from_status: "starter" | "bench" | "no_game" | null; to_status: "starter" | "bench" | "no_game"; change_source: "materialization" | "schedule" | "owner" | "commissioner"; reason: string | null; actor_id: string | null; request_key: string; kickoff_at_snapshot: string | null; changed_at: string };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       league_recap_settings: {
@@ -325,6 +349,9 @@ export type Database = {
         Returns: Array<{ team_id: string; season: string; wins: number; losses: number; ties: number }>;
       };
       set_sunday_recap_enabled: { Args: { target_league_id: string; should_enable: boolean }; Returns: Database["public"]["Tables"]["league_recap_settings"]["Row"] };
+      materialize_weekly_lineup: { Args: { target_league_id: string; target_week: number; target_member_id?: string | null }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"][] };
+      set_weekly_lineup_starters: { Args: { target_lineup_id: string; target_starter_team_ids: string[]; target_request_key: string }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"] | null };
+      correct_weekly_lineup_entry: { Args: { target_entry_id: string; target_status: string; target_reason: string }; Returns: Database["public"]["Tables"]["weekly_lineup_entries"]["Row"] };
       create_weekly_recap_snapshot: { Args: { target_league_id: string; target_week: number }; Returns: Database["public"]["Tables"]["weekly_recap_snapshots"]["Row"][] };
       create_league_creation_request: { Args: { target_name: string; target_season: string; target_owner_count: number; target_teams_per_owner: number; target_roster_rules: Json; target_approve_token_hash: string; target_deny_token_hash: string }; Returns: Database["public"]["Tables"]["league_creation_requests"]["Row"] };
       rotate_league_creation_review_tokens: { Args: { target_request_id: string; target_approve_token_hash: string; target_deny_token_hash: string }; Returns: Database["public"]["Tables"]["league_creation_requests"]["Row"] };
