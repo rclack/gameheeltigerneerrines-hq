@@ -154,6 +154,7 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
             <div className="mt-5 grid gap-2 sm:flex">
               <Link href={`/league/${league.id}/score`} className="rounded-lg px-5 py-3 text-center font-black shadow-sm transition hover:brightness-95" style={{ backgroundColor: theme.secondary, color: theme.secondaryForeground }}>View My Score</Link>
               <Link href={`/league/${league.id}/standings`} className="rounded-lg border border-current/50 px-5 py-3 text-center font-bold transition hover:bg-black/10">League Standings</Link>
+              <Link href={`/league/${league.id}/rules`} className="rounded-lg border border-current/50 px-5 py-3 text-center font-bold transition hover:bg-black/10">How Scoring Works</Link>
             </div>
           </div>
         </section>
