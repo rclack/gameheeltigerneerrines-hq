@@ -2,6 +2,8 @@
 
 This guide deploys GameHeelTigerNeerRines HQ from GitHub without putting secret values in the repository. Complete it only after the deployment-readiness checkpoint is pushed.
 
+> **CLI root guardrail:** The remote Vercel project already defines `app` as its Root Directory. Run every Vercel CLI link, build, inspect, and deployment operation from the repository root—never from the nested `app` directory. For production CLI deployments, use the repository-root `scripts/vercel-production.sh` guard instead of invoking `vercel deploy` directly.
+
 ## Before you begin
 
 Have access to:
@@ -89,6 +91,16 @@ Never create `NEXT_PUBLIC_CFBD_API_KEY`.
 5. Redeploy the same Git commit so invitation and signup confirmation links use the canonical production origin.
 
 Do not invite users until the Supabase URL settings below are complete.
+
+### Subsequent CLI deployments
+
+From the repository root, run:
+
+```sh
+./scripts/vercel-production.sh
+```
+
+The guard refuses to deploy unless the current directory is the Git repository root, `app/package.json` exists, the root Vercel linkage exists, and no nested `app/.vercel` linkage is present. Vercel then uploads the repository root and applies the project-configured `app` Root Directory exactly once.
 
 ## 4. Configure Supabase authentication URLs
 

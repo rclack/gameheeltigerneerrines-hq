@@ -11,6 +11,19 @@ export class CfbdError extends Error {
   constructor(public readonly code: CfbdErrorCode, message: string) { super(message); this.name = "CfbdError"; }
 }
 
+export interface CfbdAccountInfo {
+  tierName: string;
+  monthlyLimit: number | null;
+  remainingCalls: number | null;
+  usedCalls: number | null;
+  resetAt: string;
+  sharedPool: boolean;
+  features: {
+    scoreboard: boolean;
+    livePlayByPlay: boolean;
+  };
+}
+
 function apiKey() {
   const key = process.env.CFBD_API_KEY;
   if (!key) throw new CfbdError("not_configured", "CFBD is not configured.");
@@ -33,8 +46,29 @@ async function request(path: string, params: Record<string, string> = {}, fetche
   catch { throw new CfbdError("invalid_response", "CFBD returned malformed JSON."); }
 }
 
+export async function fetchCfbdAccountInfo(fetcher: typeof fetch = fetch): Promise<CfbdAccountInfo> {
+  const payload = await request("/info", {}, fetcher);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new CfbdError("invalid_response", "CFBD returned malformed account information.");
+  const info = payload as Record<string, unknown>;
+  const features = info.features;
+  if (typeof info.tierName !== "string" || typeof info.resetAt !== "string" || typeof info.sharedPool !== "boolean" || !features || typeof features !== "object" || Array.isArray(features)) {
+    throw new CfbdError("invalid_response", "CFBD returned malformed account information.");
+  }
+  const featureRecord = features as Record<string, unknown>;
+  const nullableNumber = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : null;
+  return {
+    tierName: info.tierName,
+    monthlyLimit: nullableNumber(info.monthlyLimit),
+    remainingCalls: nullableNumber(info.remainingCalls),
+    usedCalls: nullableNumber(info.usedCalls),
+    resetAt: info.resetAt,
+    sharedPool: info.sharedPool,
+    features: { scoreboard: featureRecord.scoreboard === true, livePlayByPlay: featureRecord.livePlayByPlay === true },
+  };
+}
+
 export async function testCfbdConnection(fetcher: typeof fetch = fetch) {
-  await request("/info", {}, fetcher);
+  await fetchCfbdAccountInfo(fetcher);
   return { status: "connected" as const };
 }
 

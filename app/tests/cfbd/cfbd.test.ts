@@ -108,6 +108,21 @@ test("successful connection and failed schedule fetch are independent states", (
   assert.equal(failure.category, "provider_error");
 });
 
+test("CFBD entitlement diagnostics remain server-only and commissioner-authorized", () => {
+  const client = readFileSync(new URL("../../src/lib/cfbd/client.ts", import.meta.url), "utf8");
+  const service = readFileSync(new URL("../../src/services/cfbdService.ts", import.meta.url), "utf8");
+  const actions = readFileSync(new URL("../../src/app/commissioner/scoring/actions.ts", import.meta.url), "utf8");
+  const health = readFileSync(new URL("../../src/app/api/health/route.ts", import.meta.url), "utf8");
+
+  assert.match(client, /^import "server-only";/);
+  assert.match(client, /Authorization: `Bearer \$\{key\}`/);
+  assert.match(service, /message: `CFBD authentication succeeded\. \$\{info\.tierName\}; \$\{usage\}; scoreboard/);
+  assert.doesNotMatch(service, /message:[^\n]*(?:Authorization|Bearer)/);
+  assert.match(actions, /testCfbdConnectionAction[\s\S]*authorizedClient\(leagueId\)/);
+  assert.match(actions, /eq\("commissioner_id", user\.id\)/);
+  assert.doesNotMatch(health, /fetchCfbdAccountInfo|monthlyLimit|usedCalls|remainingCalls|tierName/);
+});
+
 test("CFBD import repair avoids PL/pgSQL counter and table-column ambiguity", () => {
   const migration = readFileSync(new URL("../../supabase/migrations/20260821000000_cfbd_sync_counter_ambiguity_repair.sql", import.meta.url), "utf8");
   for (const counter of ["created", "updated", "unchanged", "skipped", "error"]) {

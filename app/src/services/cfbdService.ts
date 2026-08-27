@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { CfbdError, fetchCfbdFbsTeams, fetchCfbdGames, fetchCfbdRankings, testCfbdConnection } from "@/lib/cfbd/client";
+import { CfbdError, fetchCfbdAccountInfo, fetchCfbdFbsTeams, fetchCfbdGames, fetchCfbdRankings } from "@/lib/cfbd/client";
 import { buildTeamBrandingMappings, buildTeamMappingAudit } from "@/lib/cfbd/mapping";
 import { normalizeCfbdGame } from "@/lib/cfbd/normalization";
 import { prepareCfbdSchedule } from "@/lib/cfbd/schedule";
@@ -16,8 +16,12 @@ export function getCfbdConfigurationStatus() { return process.env.CFBD_API_KEY ?
 
 export async function checkCfbdConnection(): Promise<{ status: CfbdConnectionStatus; message: string }> {
   try {
-    await testCfbdConnection();
-    return { status: "connected", message: "CFBD authentication succeeded." };
+    const info = await fetchCfbdAccountInfo();
+    const usage = info.usedCalls === null || info.monthlyLimit === null ? "usage unavailable" : `${info.usedCalls.toLocaleString()} / ${info.monthlyLimit.toLocaleString()} calls used`;
+    return {
+      status: "connected",
+      message: `CFBD authentication succeeded. ${info.tierName}; ${usage}; scoreboard ${info.features.scoreboard ? "enabled" : "disabled"}; live play-by-play ${info.features.livePlayByPlay ? "enabled" : "disabled"}.`,
+    };
   } catch (error) {
     const code = error instanceof CfbdError ? error.code : "provider_error";
     return { status: code === "invalid_response" ? "provider_error" : code, message: error instanceof Error ? error.message : "CFBD connection failed." };
