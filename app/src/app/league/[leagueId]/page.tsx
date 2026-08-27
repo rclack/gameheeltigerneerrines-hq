@@ -165,7 +165,7 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
         />
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <section className="space-y-6">
+          <section className="min-w-0 space-y-6">
             {weeklyLineup && <WeeklyLineup leagueId={league.id} detail={weeklyLineup} availableWeeks={materializedLineupWeeks} nowIso={new Date().toISOString()} />}
             {draftIsPrimary && (
               <section className="rounded-2xl border-2 border-orange-400 bg-white p-5 shadow-lg" aria-labelledby="draft-heading">
