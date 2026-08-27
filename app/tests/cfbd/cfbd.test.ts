@@ -15,8 +15,17 @@ const game = { id: 9001, season: 2026, week: 3, startDate: "2026-09-12T19:00:00Z
 
 test("A: validates and normalizes a CFBD game response", () => {
   const parsed = parseCfbdGames([game]);
-  assert.deepEqual(normalizeCfbdGame(parsed[0]), { external_id: "9001", season: "2026", week: 3, game_date: "2026-09-12", start_at: "2026-09-12T19:00:00.000Z", home_external_team_id: "1", home_external_name: "South Carolina", away_external_team_id: "2", away_external_name: "UConn", home_score: null, away_score: null, status: "scheduled", neutral_site: false, postseason: false });
+  assert.deepEqual(normalizeCfbdGame(parsed[0]), { external_id: "9001", season: "2026", provider_week: 3, week: 3, game_date: "2026-09-12", start_at: "2026-09-12T19:00:00.000Z", home_external_team_id: "1", home_external_name: "South Carolina", away_external_team_id: "2", away_external_name: "UConn", home_score: null, away_score: null, status: "scheduled", neutral_site: false, postseason: false });
   assert.throws(() => parseCfbdGames({}), /not an array/);
+});
+
+test("verified 2026 CFBD Week 1 is split into competition Week 0 and regular Week 1", () => {
+  const weekZero = normalizeCfbdGame({ ...game, week: 1, startDate: "2026-08-29T19:00:00Z" });
+  const regularWeekOne = normalizeCfbdGame({ ...game, week: 1, startDate: "2026-09-04T01:00:00Z" });
+  assert.equal(weekZero.provider_week, 1);
+  assert.equal(weekZero.week, 0);
+  assert.equal(regularWeekOne.provider_week, 1);
+  assert.equal(regularWeekOne.week, 1);
 });
 
 test("D-F: external identity is stable while scores and status can synchronize", () => {

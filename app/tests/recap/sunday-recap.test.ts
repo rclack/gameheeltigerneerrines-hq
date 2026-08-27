@@ -50,6 +50,17 @@ test("zero-event weeks produce a factual quiet-week card", () => {
   assert.match(result.facts[0].text, /no active scoring changes/);
 });
 
+test("Week 0 is a legitimate recap boundary", () => {
+  const weekZeroSnapshots: SnapshotInput[] = [
+    { league_member_id: "member-a", total_points: 0, standing_position: 1, weekly_points: 0, prior_position: null },
+    { league_member_id: "member-b", total_points: 0, standing_position: 2, weekly_points: 0, prior_position: null },
+  ];
+  const payload = buildVerifiedRecapPayload({ league, week: 0, snapshots: weekZeroSnapshots, members, picks: [{ league_member_id: "member-a", team: auburn }, { league_member_id: "member-b", team: georgia }], events: [], games: [game({ week: 0 })] });
+  assert.equal(payload.league.week, 0);
+  assert.equal(payload.nextWeek, null);
+  assert.match(payload.facts[0].text, /Week 0/);
+});
+
 test("ties do not force unsupported weekly superlatives", () => {
   const result = payload([{ weekly_points: 3, prior_position: null }, { weekly_points: 3, prior_position: null }], []);
   assert.equal(result.facts.some((fact) => fact.id.startsWith("top:")), false);

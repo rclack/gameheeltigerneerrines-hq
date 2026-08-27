@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       if (recapLeagues.error) throw recapLeagues.error;
       recaps = await runScheduledRecapBatch(recapLeagues.data, async (league) => {
         const week = await latestRecapWeek(supabase, league);
-        if (!week) return "skipped";
+        if (week === null) return "skipped";
         try {
           const recap = await prepareSundayRecap(supabase, league, week, null);
           const delivery = await sendPreparedSundayRecap(supabase, recap);

@@ -9,7 +9,7 @@ import type { CfbdRankingWeek, NormalizedCfbdGame } from "../../src/lib/cfbd/typ
 
 const cutoff = new Date("2026-11-03T23:00:00Z");
 const baseGame: NormalizedCfbdGame = {
-  external_id: "game-1", season: "2026", week: 10, game_date: "2026-10-31", start_at: "2026-10-31T19:00:00.000Z",
+  external_id: "game-1", season: "2026", provider_week: 10, week: 10, game_date: "2026-10-31", start_at: "2026-10-31T19:00:00.000Z",
   home_external_team_id: "1", home_external_name: "Air Force", away_external_team_id: "2", away_external_name: "Alabama",
   home_score: null, away_score: null, status: "scheduled", neutral_site: false, postseason: false,
 };
@@ -48,10 +48,23 @@ test("postseason carries the final CFP poll forward", () => {
 });
 
 test("missing applicable poll is distinct from an explicit null unranked snapshot", () => {
-  const noPriorAp = { ...baseGame, week: 1 };
+  const noPriorAp = { ...baseGame, provider_week: 1, week: 1 };
   const result = buildRankingSnapshots([noPriorAp], prepared, rankings, cutoff);
   assert.equal(result.snapshots.length, 0);
   assert.deepEqual(result.missing, [{ external_id: "game-1", source: "AP Top 25" }]);
+});
+
+test("competition Week 0 uses provider Week 1 AP context", () => {
+  const weekZero = { ...baseGame, provider_week: 1, week: 0, start_at: "2026-08-29T19:00:00.000Z" };
+  const providerWeekOne: CfbdRankingWeek[] = [{
+    season: 2026,
+    seasonType: "regular",
+    week: 1,
+    polls: [{ poll: "AP Top 25", ranks: [{ rank: 7, school: "Alabama" }] }],
+  }];
+  const result = buildRankingSnapshots([weekZero], [{ ...prepared[0], week: 0, provider_week: 1, start_at: weekZero.start_at }], providerWeekOne, cutoff);
+  assert.equal(result.missing.length, 0);
+  assert.equal(result.snapshots[0].away_rank, 7);
 });
 
 test("Coaches-only rankings leave context unavailable without blocking schedule preparation", () => {

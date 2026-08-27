@@ -14,7 +14,7 @@ function timestamp(value: string | null) { return value ? new Date(value).toISOS
 
 export default function SundayRecapControl({ leagueId, enabled, lastRecap, availableWeeks }: Props) {
   const router = useRouter();
-  const [selectedWeek, setSelectedWeek] = useState(lastRecap?.week ?? availableWeeks.at(-1) ?? 1);
+  const [selectedWeek, setSelectedWeek] = useState(lastRecap?.week ?? availableWeeks.at(-1) ?? 0);
   const [recap, setRecap] = useState(lastRecap);
   const [pending, setPending] = useState(false);
   const [confirmingSend, setConfirmingSend] = useState(false);

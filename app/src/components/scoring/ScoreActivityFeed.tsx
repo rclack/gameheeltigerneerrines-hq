@@ -15,7 +15,7 @@ export default function ScoreActivityFeed({ events, limit }: { events: ScoringEv
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100"><TeamLogo team={event.team} size="md" decorative /></span>
             <div className="min-w-0">
               <p className="font-bold text-slate-950">{event.team.school_name}</p>
-              <p className="text-sm text-slate-600">{event.rule.display_name}{event.week ? ` · Week ${event.week}` : " · Season"}</p>
+              <p className="text-sm text-slate-600">{event.rule.display_name}{event.week !== null ? ` · Week ${event.week}` : " · Season"}</p>
               {event.notes && <p className="mt-1 text-sm text-slate-500">{event.notes}</p>}
             </div>
           </div>

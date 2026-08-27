@@ -124,7 +124,8 @@ export function normalizeCfbdGame(game: CfbdGame): NormalizedCfbdGame {
   return {
     external_id: String(game.id),
     season: String(game.season),
-    week: game.week,
+    provider_week: game.week,
+    week: competitionWeek(game.season, game.week, startAt),
     game_date: startAt.toISOString().slice(0, 10),
     start_at: startAt.toISOString(),
     home_external_team_id: game.homeId == null ? null : String(game.homeId),
@@ -137,4 +138,18 @@ export function normalizeCfbdGame(game: CfbdGame): NormalizedCfbdGame {
     neutral_site: game.neutralSite ?? false,
     postseason: (game.seasonType ?? "regular").toLowerCase() !== "regular",
   };
+}
+
+interface WeekZeroWindow { providerWeek: number; startsAt: string; endsAt: string }
+
+// CFBD has no Week 0 value; verified provider Week 1 windows are mapped explicitly per season.
+const WEEK_ZERO_WINDOWS: Readonly<Record<string, WeekZeroWindow>> = {
+  "2026": { providerWeek: 1, startsAt: "2026-08-29T04:00:00.000Z", endsAt: "2026-08-30T04:00:00.000Z" },
+};
+
+export function competitionWeek(season: number, providerWeek: number, startAt: Date) {
+  const window = WEEK_ZERO_WINDOWS[String(season)];
+  if (!window || providerWeek !== window.providerWeek) return providerWeek;
+  const kickoff = startAt.getTime();
+  return kickoff >= new Date(window.startsAt).getTime() && kickoff < new Date(window.endsAt).getTime() ? 0 : providerWeek;
 }

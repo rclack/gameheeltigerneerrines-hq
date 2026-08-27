@@ -72,8 +72,8 @@ function applicablePoll(weeks: CfbdRankingWeek[], game: NormalizedCfbdGame, sour
   const sameSeason = candidates.filter(({ rankingWeek }) => String(rankingWeek.season) === game.season);
   const eligible = sameSeason.filter(({ rankingWeek }) => {
     const type = seasonType(rankingWeek.seasonType);
-    if (!game.postseason) return type === "regular" && rankingWeek.week <= game.week;
-    return type === "regular" || (type === "postseason" && rankingWeek.week <= game.week);
+    if (!game.postseason) return type === "regular" && rankingWeek.week <= game.provider_week;
+    return type === "regular" || (type === "postseason" && rankingWeek.week <= game.provider_week);
   });
   return eligible.sort((left, right) => {
     const leftPostseason = seasonType(left.rankingWeek.seasonType) === "postseason" ? 1 : 0;

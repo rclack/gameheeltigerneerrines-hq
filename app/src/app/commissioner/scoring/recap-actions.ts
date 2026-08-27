@@ -29,7 +29,7 @@ export async function setSundayRecapEnabledAction(leagueId: string, enabled: boo
 }
 
 export async function generateSundayRecapAction(leagueId: string, week: number): Promise<RecapActionState> {
-  if (!Number.isInteger(week) || week < 1 || week > 25) return { error: "Choose a valid recap week." };
+  if (!Number.isInteger(week) || week < 0 || week > 25) return { error: "Choose a valid recap week." };
   const authorized = await authorize(leagueId);
   if (!authorized) return { error: "Only the league commissioner can generate this recap." };
   try {

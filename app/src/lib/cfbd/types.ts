@@ -45,6 +45,7 @@ export type InternalGameStatus = "scheduled" | "in_progress" | "final" | "postpo
 export interface NormalizedCfbdGame {
   external_id: string;
   season: string;
+  provider_week: number;
   week: number;
   game_date: string;
   start_at: string;
