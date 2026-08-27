@@ -11,6 +11,7 @@ import {
   recordLabel,
   selectRelevantOwnerGames,
 } from "@/lib/league/owner-season";
+import { formatRankedTeamName } from "@/lib/league/ranking-display";
 import { createClient } from "@/lib/supabase/server";
 import {
   getDraftParticipants,
@@ -201,10 +202,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
                             </div>
                             <div className="mt-3 flex items-center gap-3">
                               <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-white shadow-sm"><TeamLogo team={ownedParticipant?.kind === "internal" ? ownedParticipant.team : { school_name: formatGameParticipant(ownedParticipant) }} size="md" decorative /></span>
-                              <p className="text-lg font-black">{ownedRanking ? `#${ownedRanking.rank} ` : ""}{formatGameParticipant(ownedParticipant)}</p>
+                              <p className="text-lg font-black">{formatRankedTeamName(formatGameParticipant(ownedParticipant), ownedRanking?.rank)}</p>
                             </div>
                             <p className="my-1 text-xs font-bold uppercase tracking-wider text-slate-400">{context}</p>
-                            <div className="flex items-center gap-2"><TeamLogo team={opponent?.kind === "internal" ? opponent.team : { school_name: formatGameParticipant(opponent) }} size="sm" decorative /><p className="font-bold text-slate-700">{opponentRanking ? `#${opponentRanking.rank} ` : ""}{formatGameParticipant(opponent)}</p></div>
+                            <div className="flex items-center gap-2"><TeamLogo team={opponent?.kind === "internal" ? opponent.team : { school_name: formatGameParticipant(opponent) }} size="sm" decorative /><p className="font-bold text-slate-700">{formatRankedTeamName(formatGameParticipant(opponent), opponentRanking?.rank)}</p></div>
                             <div className="mt-3 border-t border-slate-200 pt-3">
                               <p className="font-bold text-blue-950">{gameDateLabel(game)}</p>
                               {game.status === "in_progress" && game.home_score !== null && game.away_score !== null && <p className="mt-1 text-sm font-black text-red-700">Live score: {game.away_score}–{game.home_score}</p>}
@@ -228,7 +229,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ leagueI
                       return (
                         <article key={pick.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex items-start justify-between gap-3">
-                            <div className="flex min-w-0 items-center gap-3"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm"><TeamLogo team={pick.team} size="md" decorative /></span><div className="min-w-0"><p className="truncate text-lg font-black text-blue-950">{facts?.apRank ? `#${facts.apRank} ` : ""}{pick.team.school_name}</p><p className="truncate text-sm font-semibold text-slate-500">{pick.team.conference ?? "Conference unavailable"} · {facts?.classification ?? "FBS"}</p></div></div>
+                            <div className="flex min-w-0 items-center gap-3"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm"><TeamLogo team={pick.team} size="md" decorative /></span><div className="min-w-0"><p className="truncate text-lg font-black text-blue-950">{formatRankedTeamName(pick.team.school_name, facts?.apRank)}</p><p className="truncate text-sm font-semibold text-slate-500">{pick.team.conference ?? "Conference unavailable"} · {facts?.classification ?? "FBS"}</p></div></div>
                             <span className="rounded-lg bg-blue-950 px-2.5 py-1 text-sm font-black text-white">{recordLabel(record)}</span>
                           </div>
                           <div className="mt-4 flex items-end justify-between border-t border-slate-200 pt-3">
