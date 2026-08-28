@@ -51,3 +51,14 @@ export function sanitizedLivePollError(error: unknown) {
   if (error instanceof Error && /authentication/i.test(error.message)) return { category: "authentication_failed", message: "CFBD authentication failed." };
   return { category: "provider_error", message: "CFBD live scoreboard polling failed." };
 }
+
+export function liveQuotaSampleDue(
+  quota: { quota_checked_at: string | null; quota_remaining: number | null; quota_monthly_limit: number | null },
+  now = Date.now(),
+) {
+  if (!quota.quota_checked_at || quota.quota_remaining === null || quota.quota_monthly_limit === null) return true;
+  const checkedAt = new Date(quota.quota_checked_at).getTime();
+  if (!Number.isFinite(checkedAt)) return true;
+  const nearThreshold = quota.quota_remaining <= Math.max(1_000, quota.quota_monthly_limit * 0.1);
+  return now - checkedAt >= (nearThreshold ? 15 * 60_000 : 60 * 60_000);
+}

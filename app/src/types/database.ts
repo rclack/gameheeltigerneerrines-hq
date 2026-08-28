@@ -285,7 +285,7 @@ export type Database = {
         Insert: never; Update: never; Relationships: [];
       };
       live_scoreboard_poll_runs: {
-        Row: { id: string; provider: "cfbd"; trigger_type: "manual" | "scheduled"; league_ids: string[]; lease_token: string; started_at: string; completed_at: string | null; status: "running" | "succeeded" | "failed"; provider_calls: number; provider_game_count: number; relevant_game_count: number; changed_game_count: number; unchanged_game_count: number; unmatched_game_count: number; quota_tier: string | null; quota_monthly_limit: number | null; quota_used: number | null; quota_remaining: number | null; error_category: string | null; error_message: string | null };
+        Row: { id: string; provider: "cfbd"; trigger_type: "manual" | "scheduled"; league_ids: string[]; lease_token: string; started_at: string; completed_at: string | null; status: "running" | "succeeded" | "failed"; provider_calls: number; provider_game_count: number; relevant_game_count: number; changed_game_count: number; unchanged_game_count: number; unmatched_game_count: number; quota_tier: string | null; quota_monthly_limit: number | null; quota_used: number | null; quota_remaining: number | null; quota_checked_at: string | null; error_category: string | null; error_message: string | null };
         Insert: never; Update: never; Relationships: [];
       };
       league_recap_settings: {
@@ -389,6 +389,7 @@ export type Database = {
       inspect_league_creation_review: { Args: { target_token: string; target_decision: string }; Returns: Array<{ request_id: string; requester_email: string; requester_name: string; proposed_name: string; season: string; owner_count: number; teams_per_owner: number; roster_rules: Json; expires_at: string }> };
       decide_league_creation_request: { Args: { target_token: string; target_decision: string }; Returns: string | null };
       begin_live_scoreboard_poll: { Args: { target_trigger: string; target_league_ids: string[] }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] | null };
+      record_live_scoreboard_quota_sample: { Args: { target_quota: Json }; Returns: boolean };
       complete_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_games: Json; target_provider_calls: number; target_quota: Json }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
       fail_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_provider_calls: number; target_error_category: string; target_error_message: string }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
     };

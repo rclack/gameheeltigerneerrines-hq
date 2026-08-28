@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = readFileSync(new URL("../../supabase/migrations/20260903000000_live_scoreboard_foundation.sql", import.meta.url), "utf8");
 const route = readFileSync(new URL("../../src/app/api/cron/cfbd-live/route.ts", import.meta.url), "utf8");
 const service = readFileSync(new URL("../../src/services/liveScoreboardService.ts", import.meta.url), "utf8");
+const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260903000003_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
 
 test("live scoreboard capability deploys inert with 10/3 minute intervals", () => {
   assert.match(migration, /enabled boolean not null default false/);
@@ -48,4 +49,14 @@ test("polling has a lease, local counters, quota cap, and provider backoff", () 
   assert.match(migration, /monthly_call_cap integer not null default 24000/);
   assert.match(migration, /sum\(provider_calls\)/);
   assert.match(migration, /least\(3600, 180/);
+});
+
+test("routine live polling reuses an hourly quota sample and spends one scoreboard call", () => {
+  assert.match(quotaMigration, /last_quota_checked_at timestamptz/);
+  assert.match(quotaMigration, /record_live_scoreboard_quota_sample/);
+  assert.match(quotaMigration, /v_control\.last_quota_checked_at/);
+  assert.match(service, /trigger === "manual" \|\| liveQuotaSampleDue\(begin\.data\)/);
+  assert.equal((service.match(/fetchCfbdScoreboard\(\)/g) ?? []).length, 1);
+  assert.match(service, /record_live_scoreboard_quota_sample/);
+  assert.match(service, /if \(!sampledQuota\)/);
 });
