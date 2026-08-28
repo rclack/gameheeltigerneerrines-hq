@@ -15,6 +15,8 @@ export async function pollLiveScoreboard(
   if (begin.error) throw begin.error;
   if (!begin.data) return null;
   let providerCalls = 0;
+  let scoreboardCalls = 0;
+  let infoCalls = 0;
   let quota = {
     tier_name: begin.data.quota_tier,
     monthly_limit: begin.data.quota_monthly_limit,
@@ -24,16 +26,25 @@ export async function pollLiveScoreboard(
   let sampledQuota = false;
   try {
     if (trigger === "manual" || liveQuotaSampleDue(begin.data)) {
-      const info = await fetchCfbdAccountInfo();
+      infoCalls += 1;
       providerCalls += 1;
+      const info = await fetchCfbdAccountInfo();
       sampledQuota = true;
       if (!info.features.scoreboard) throw new Error("CFBD scoreboard entitlement is unavailable.");
       quota = { tier_name: info.tierName, monthly_limit: info.monthlyLimit, used: info.usedCalls, remaining: info.remainingCalls };
       const recorded = await supabase.rpc("record_live_scoreboard_quota_sample", { target_quota: quota });
       if (recorded.error) throw recorded.error;
     }
-    const scoreboard = await fetchCfbdScoreboard();
+    scoreboardCalls += 1;
     providerCalls += 1;
+    const scoreboard = await fetchCfbdScoreboard();
+    const breakdown = await supabase.rpc("record_live_scoreboard_call_breakdown", {
+      target_run_id: begin.data.id,
+      target_lease_token: begin.data.lease_token,
+      target_scoreboard_calls: scoreboardCalls,
+      target_info_calls: infoCalls,
+    });
+    if (breakdown.error || !breakdown.data) throw breakdown.error ?? new Error("Live scoreboard call accounting failed.");
     const complete = await supabase.rpc("complete_live_scoreboard_poll", {
       target_run_id: begin.data.id,
       target_lease_token: begin.data.lease_token,
@@ -46,12 +57,19 @@ export async function pollLiveScoreboard(
   } catch (error) {
     if (!sampledQuota) {
       try {
-        const info = await fetchCfbdAccountInfo();
+        infoCalls += 1;
         providerCalls += 1;
+        const info = await fetchCfbdAccountInfo();
         quota = { tier_name: info.tierName, monthly_limit: info.monthlyLimit, used: info.usedCalls, remaining: info.remainingCalls };
         await supabase.rpc("record_live_scoreboard_quota_sample", { target_quota: quota });
       } catch { /* Preserve the original provider error; this refresh is best effort. */ }
     }
+    await supabase.rpc("record_live_scoreboard_call_breakdown", {
+      target_run_id: begin.data.id,
+      target_lease_token: begin.data.lease_token,
+      target_scoreboard_calls: scoreboardCalls,
+      target_info_calls: infoCalls,
+    });
     const safe = sanitizedLivePollError(error);
     await supabase.rpc("fail_live_scoreboard_poll", {
       target_run_id: begin.data.id,

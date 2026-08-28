@@ -6,12 +6,13 @@ const migration = readFileSync(new URL("../../supabase/migrations/20260903000000
 const route = readFileSync(new URL("../../src/app/api/cron/cfbd-live/route.ts", import.meta.url), "utf8");
 const service = readFileSync(new URL("../../src/services/liveScoreboardService.ts", import.meta.url), "utf8");
 const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260903000003_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
+const activationMigration = readFileSync(new URL("../../supabase/migrations/20260903000004_live_scoreboard_drafted_game_cadence.sql", import.meta.url), "utf8");
 
-test("live scoreboard capability deploys inert with 10/3 minute intervals", () => {
+test("live scoreboard capability starts inert with 10/3 minute intervals and activation scheduling is explicit", () => {
   assert.match(migration, /enabled boolean not null default false/);
   assert.match(migration, /pregame_interval_seconds integer not null default 600/);
   assert.match(migration, /live_interval_seconds integer not null default 180/);
-  assert.doesNotMatch(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"), /cfbd-live/);
+  assert.match(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"), /cfbd-live/);
 });
 
 test("one canonical provider poll serves the configured league scope", () => {
@@ -59,4 +60,14 @@ test("routine live polling reuses an hourly quota sample and spends one scoreboa
   assert.equal((service.match(/fetchCfbdScoreboard\(\)/g) ?? []).length, 1);
   assert.match(service, /record_live_scoreboard_quota_sample/);
   assert.match(service, /if \(!sampledQuota\)/);
+  assert.match(activationMigration, /scoreboard_calls integer not null default 0/);
+  assert.match(activationMigration, /info_calls integer not null default 0/);
+  assert.match(activationMigration, /record_live_scoreboard_call_breakdown/);
+});
+
+test("scheduled cadence is driven only by teams drafted in completed scoped leagues", () => {
+  assert.match(activationMigration, /join public\.drafts draft on draft\.league_id = game\.league_id and draft\.status = 'complete'/);
+  assert.match(activationMigration, /join public\.draft_picks pick on pick\.draft_id = draft\.id/);
+  assert.match(activationMigration, /pick\.team_id in \(game\.home_team_id, game\.away_team_id\)/);
+  assert.match(activationMigration, /v_any_drafted_live/);
 });
