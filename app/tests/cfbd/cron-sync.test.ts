@@ -55,10 +55,9 @@ test("scheduled database wrappers are service-role-only and overlap guarded", ()
   assert.match(migration, /stale synchronization run was closed by the overlap guard/);
 });
 
-test("Vercel schedules CFBD sync plus the state-gated live scheduler", () => {
+test("Vercel retains only Hobby-compatible CFBD synchronization schedules", () => {
   assert.deepEqual(vercel.crons, [
     { path: "/api/cron/cfbd-sync", schedule: "0 11 * * *" },
     { path: "/api/cron/cfbd-sync", schedule: "0 21 * * 6" },
-    { path: "/api/cron/cfbd-live", schedule: "* * * * *" },
   ]);
 });

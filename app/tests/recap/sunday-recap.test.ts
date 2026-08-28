@@ -127,10 +127,10 @@ test("commissioner actions authorize before creating an elevated client", () => 
   assert.match(actions, /Only the league commissioner can send this recap/);
 });
 
-test("cron schedule includes sync/live slots and Sunday recaps reuse the protected sync route", () => {
+test("Vercel cron stays within Hobby limits and Sunday recaps reuse the protected sync route", () => {
   const config = JSON.parse(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"));
   const route = readFileSync(new URL("../../src/app/api/cron/cfbd-sync/route.ts", import.meta.url), "utf8");
-  assert.equal(config.crons.length, 3);
+  assert.equal(config.crons.length, 2);
   assert.match(route, /isAuthorizedCronRequest/);
   assert.match(route, /isSundayInEastern/);
   assert.match(route, /sendPreparedSundayRecap/);

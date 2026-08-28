@@ -8,11 +8,11 @@ const service = readFileSync(new URL("../../src/services/liveScoreboardService.t
 const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260903000003_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
 const activationMigration = readFileSync(new URL("../../supabase/migrations/20260903000004_live_scoreboard_drafted_game_cadence.sql", import.meta.url), "utf8");
 
-test("live scoreboard capability starts inert with 10/3 minute intervals and activation scheduling is explicit", () => {
+test("live scoreboard capability starts inert with 10/3 minute intervals and no incompatible Vercel cron", () => {
   assert.match(migration, /enabled boolean not null default false/);
   assert.match(migration, /pregame_interval_seconds integer not null default 600/);
   assert.match(migration, /live_interval_seconds integer not null default 180/);
-  assert.match(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"), /cfbd-live/);
+  assert.doesNotMatch(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"), /cfbd-live/);
 });
 
 test("one canonical provider poll serves the configured league scope", () => {
