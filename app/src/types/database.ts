@@ -276,6 +276,18 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      live_scoreboard_games: {
+        Row: { provider: "cfbd"; provider_game_id: string; start_at: string; status: "scheduled" | "in_progress" | "completed"; period: number | null; clock: string | null; situation: string | null; possession: string | null; last_play: string | null; home_external_team_id: string; home_name: string; home_score: number | null; home_win_probability: number | null; away_external_team_id: string; away_name: string; away_score: number | null; away_win_probability: number | null; state_fingerprint: string; fetched_at: string; changed_at: string; first_seen_at: string; first_in_progress_at: string | null; first_completed_at: string | null };
+        Insert: never; Update: never; Relationships: [];
+      };
+      live_scoreboard_snapshots: {
+        Row: { id: number; provider: "cfbd"; provider_game_id: string; status: "scheduled" | "in_progress" | "completed"; period: number | null; clock: string | null; situation: string | null; possession: string | null; last_play: string | null; home_score: number | null; home_win_probability: number | null; away_score: number | null; away_win_probability: number | null; state_fingerprint: string; fetched_at: string; created_at: string };
+        Insert: never; Update: never; Relationships: [];
+      };
+      live_scoreboard_poll_runs: {
+        Row: { id: string; provider: "cfbd"; trigger_type: "manual" | "scheduled"; league_ids: string[]; lease_token: string; started_at: string; completed_at: string | null; status: "running" | "succeeded" | "failed"; provider_calls: number; provider_game_count: number; relevant_game_count: number; changed_game_count: number; unchanged_game_count: number; unmatched_game_count: number; quota_tier: string | null; quota_monthly_limit: number | null; quota_used: number | null; quota_remaining: number | null; error_category: string | null; error_message: string | null };
+        Insert: never; Update: never; Relationships: [];
+      };
       league_recap_settings: {
         Row: { league_id: string; enabled: boolean; updated_by: string | null; created_at: string; updated_at: string };
         Insert: { league_id: string; enabled?: boolean; updated_by?: string | null; created_at?: string; updated_at?: string };
@@ -376,6 +388,9 @@ export type Database = {
       mark_league_request_notification: { Args: { target_request_id: string; was_sent: boolean }; Returns: boolean };
       inspect_league_creation_review: { Args: { target_token: string; target_decision: string }; Returns: Array<{ request_id: string; requester_email: string; requester_name: string; proposed_name: string; season: string; owner_count: number; teams_per_owner: number; roster_rules: Json; expires_at: string }> };
       decide_league_creation_request: { Args: { target_token: string; target_decision: string }; Returns: string | null };
+      begin_live_scoreboard_poll: { Args: { target_trigger: string; target_league_ids: string[] }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] | null };
+      complete_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_games: Json; target_provider_calls: number; target_quota: Json }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
+      fail_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_provider_calls: number; target_error_category: string; target_error_message: string }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";

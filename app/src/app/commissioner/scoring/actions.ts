@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase/server";
 import { checkCfbdConnection, syncCfbdSchedule } from "@/services/cfbdService";
 import { CfbdSyncError } from "@/lib/cfbd/diagnostics";
 import { bulkScoringPlan, executeBulkScoring } from "@/lib/cfbd/scoringDashboard";
+import { configuredCronLeagueIds } from "@/lib/cfbd/cron";
+import { createCronClient } from "@/lib/supabase/cron";
+import { pollLiveScoreboard } from "@/services/liveScoreboardService";
 
 export interface ScoringActionState { error?: string; success?: string }
 export interface BulkScoringActionState {
@@ -117,6 +120,19 @@ export async function testCfbdConnectionAction(leagueId: string): Promise<Scorin
   if (!supabase) return { error: "You do not have permission to test providers for this league." };
   const result = await checkCfbdConnection();
   return result.status === "connected" ? { success: result.message } : { error: result.message };
+}
+
+export async function pollCfbdLiveScoreboardAction(leagueId: string): Promise<ScoringActionState> {
+  const authorized = await authorizedClient(leagueId);
+  if (!authorized) return { error: "You do not have permission to test live providers for this league." };
+  try {
+    const leagueIds = configuredCronLeagueIds(process.env.CFBD_CRON_LEAGUE_IDS);
+    const run = await pollLiveScoreboard(createCronClient(), leagueIds, "manual");
+    revalidatePath(`/commissioner/${leagueId}/scoring`);
+    return run ? { success: `Live scoreboard poll succeeded: ${run.relevant_game_count} relevant, ${run.changed_game_count} changed, ${run.unchanged_game_count} unchanged, ${run.provider_calls} provider calls.` } : { success: "Live scoreboard poll was not due." };
+  } catch {
+    return { error: "Live scoreboard polling failed. Review the protected poll diagnostics." };
+  }
 }
 
 export async function syncCfbdScheduleAction(leagueId: string): Promise<ScoringActionState> {

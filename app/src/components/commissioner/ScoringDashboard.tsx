@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
-import { addManualEventAction, saveGameAction, scoreEligibleFinalsAction, scoreGameAction, syncCfbdScheduleAction, testCfbdConnectionAction, voidManualEventAction, type BulkScoringActionState } from "@/app/commissioner/scoring/actions";
+import { addManualEventAction, pollCfbdLiveScoreboardAction, saveGameAction, scoreEligibleFinalsAction, scoreGameAction, syncCfbdScheduleAction, testCfbdConnectionAction, voidManualEventAction, type BulkScoringActionState } from "@/app/commissioner/scoring/actions";
 import Button from "@/components/ui/Button";
 import SundayRecapControl from "@/components/commissioner/SundayRecapControl";
 import { bulkScoringPlan, canProcessScoring, defaultGameView, gameAttentionCounts, hasGameRankingContext, visibleGames, type GameView } from "@/lib/cfbd/scoringDashboard";
@@ -13,7 +13,7 @@ import { syncRunFailureDetail } from "@/lib/cfbd/diagnostics";
 import type { GameDetail, SaveGameInput } from "@/services/gameService";
 import type { ScoringEventDetail } from "@/services/scoringService";
 import type { LeagueStandingsData } from "@/services/standingsService";
-import type { ExternalSyncRun, League, ScoringRule, SundayRecap, Team } from "@/types/database";
+import type { Database, ExternalSyncRun, League, ScoringRule, SundayRecap, Team } from "@/types/database";
 
 interface DraftedTeam {
   team: Team;
@@ -32,6 +32,7 @@ interface Props {
   teams: Team[];
   cfbdConfiguration: "configured" | "not_configured";
   syncRuns: ExternalSyncRun[];
+  livePollRuns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"][];
   recapOperations: { enabled: boolean; lastRecap: SundayRecap | null; availableWeeks: number[] };
 }
 
@@ -62,7 +63,7 @@ function summaryNumber(syncRun: ExternalSyncRun, key: string) {
   return typeof value === "number" ? value : 0;
 }
 
-export default function ScoringDashboard({ league, rules, events, games, standings, draftedTeams, teams, cfbdConfiguration, syncRuns, recapOperations }: Props) {
+export default function ScoringDashboard({ league, rules, events, games, standings, draftedTeams, teams, cfbdConfiguration, syncRuns, livePollRuns, recapOperations }: Props) {
   const router = useRouter();
   const manualRules = rules.filter((rule) => rule.category !== "game_result");
   const [manual, setManual] = useState({ teamId: draftedTeams[0]?.team.id ?? "", ruleId: manualRules[0]?.id ?? "", week: "", eventDate: new Date().toISOString().slice(0, 10), notes: "" });
@@ -169,10 +170,11 @@ export default function ScoringDashboard({ league, rules, events, games, standin
         <section className="rounded-xl bg-white p-5 shadow sm:p-6">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div><p className="text-xs font-black uppercase tracking-[0.18em] text-orange-700">Schedule automation</p><h2 className="mt-1 text-2xl font-black">CFBD Data Sync</h2><p className="mt-1 max-w-3xl text-sm text-slate-700">Automatic synchronization runs throughout the week and more often on game days. Manual Sync remains the fallback. Synchronization never awards points, and commissioner overrides stay protected.</p><p className="mt-3 font-semibold">Connection: <span className={cfbdConfiguration === "configured" ? "text-green-700" : "text-amber-700"}>{cfbdConfiguration === "configured" ? "Configured" : "Not configured"}</span></p></div>
-            <div className="flex flex-col gap-2 sm:flex-row"><Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => run(() => testCfbdConnectionAction(league.id))}>Test Connection</Button><Button className="sm:w-auto" variant="info" disabled={pending || cfbdConfiguration !== "configured"} onClick={() => run(() => syncCfbdScheduleAction(league.id))}>Sync {league.season} Schedule</Button></div>
+            <div className="flex flex-col gap-2 sm:flex-row"><Button className="sm:w-auto" variant="secondary" disabled={pending} onClick={() => run(() => testCfbdConnectionAction(league.id))}>Test Connection</Button><Button className="sm:w-auto" variant="secondary" disabled={pending || cfbdConfiguration !== "configured"} onClick={() => run(() => pollCfbdLiveScoreboardAction(league.id))}>Poll Live Scoreboard</Button><Button className="sm:w-auto" variant="info" disabled={pending || cfbdConfiguration !== "configured"} onClick={() => run(() => syncCfbdScheduleAction(league.id))}>Sync {league.season} Schedule</Button></div>
           </div>
           {latestSync ? <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-black uppercase tracking-wide text-slate-500">Latest synchronization</p><p className="mt-1 font-black text-slate-950">{formatTimestamp(latestSync.started_at)}</p></div><span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${latestSync.status === "completed" ? "bg-emerald-100 text-emerald-800" : latestSync.status === "failed" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-900"}`}>{latestSync.status}</span></div><div className="mt-4 grid grid-cols-3 gap-2 text-center sm:grid-cols-6">{[["Fetched", latestSync.fetched_count || summaryNumber(latestSync, "games_fetched")], ["Created", latestSync.created_count], ["Updated", latestSync.updated_count], ["Unchanged", latestSync.unchanged_count], ["Skipped", latestSync.skipped_count], ["New finals", summaryNumber(latestSync, "newly_final_count")]].map(([label, value]) => <div key={label} className="rounded-lg bg-white p-2"><p className="text-lg font-black text-blue-950">{value}</p><p className="text-[0.65rem] font-bold uppercase tracking-wide text-slate-500">{label}</p></div>)}</div>{syncRunFailureDetail(latestSync.summary) ? <p className="mt-3 rounded-lg bg-red-100 p-3 text-sm font-semibold text-red-800">Latest sync needs attention: {syncRunFailureDetail(latestSync.summary)?.message}</p> : null}</div> : <p className="mt-5 rounded-lg bg-slate-50 p-4 text-slate-700">No schedule synchronization has been recorded yet. Use manual Sync to establish the first schedule.</p>}
           {syncRuns.length ? <details className="mt-4"><summary className="cursor-pointer rounded-lg py-2 text-sm font-black text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">View synchronization history ({syncRuns.length})</summary><div className="mt-2 overflow-x-auto"><table className="min-w-full text-left text-sm"><thead><tr className="border-b text-slate-700"><th className="p-2">Started</th><th className="p-2">Status</th><th className="p-2">Fetched</th><th className="p-2">Created</th><th className="p-2">Updated</th><th className="p-2">Unchanged</th><th className="p-2">Skipped</th><th className="p-2">New finals</th><th className="p-2">Mapping issues</th><th className="p-2">Diagnostic</th></tr></thead><tbody>{syncRuns.map((syncRun) => { const failure = syncRunFailureDetail(syncRun.summary); return <tr key={syncRun.id} className="border-b"><td className="whitespace-nowrap p-2">{formatTimestamp(syncRun.started_at)}</td><td className="p-2 font-bold">{syncRun.status}</td><td className="p-2">{syncRun.fetched_count || summaryNumber(syncRun, "games_fetched")}</td><td className="p-2">{syncRun.created_count}</td><td className="p-2">{syncRun.updated_count}</td><td className="p-2">{syncRun.unchanged_count}</td><td className="p-2">{syncRun.skipped_count}</td><td className="p-2">{summaryNumber(syncRun, "newly_final_count")}</td><td className="p-2">{summaryNumber(syncRun, "ambiguous_count") + summaryNumber(syncRun, "unmatched_cfbd_count") + summaryNumber(syncRun, "unresolved_fbs_mapping_game_count")}</td><td className="max-w-sm p-2">{failure ? `${failure.stage} · ${failure.category} · ${failure.message}` : "—"}</td></tr>; })}</tbody></table></div></details> : null}
+          {livePollRuns.length ? <details className="mt-4"><summary className="cursor-pointer rounded-lg py-2 text-sm font-black text-blue-800">Live scoreboard telemetry ({livePollRuns.length})</summary><div className="mt-2 overflow-x-auto"><table className="min-w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">Started</th><th className="p-2">Status</th><th className="p-2">Calls</th><th className="p-2">Relevant</th><th className="p-2">Changed</th><th className="p-2">Unchanged</th><th className="p-2">Quota</th></tr></thead><tbody>{livePollRuns.map((poll)=><tr className="border-b" key={poll.id}><td className="p-2 whitespace-nowrap">{formatTimestamp(poll.started_at)}</td><td className="p-2 font-bold">{poll.status}</td><td className="p-2">{poll.provider_calls}</td><td className="p-2">{poll.relevant_game_count}</td><td className="p-2">{poll.changed_game_count}</td><td className="p-2">{poll.unchanged_game_count}</td><td className="p-2">{poll.quota_used ?? '—'} / {poll.quota_monthly_limit ?? '—'}</td></tr>)}</tbody></table></div></details> : <p className="mt-4 rounded-lg bg-slate-50 p-4 text-slate-700">No live scoreboard polls have run. Recurring polling remains inactive.</p>}
         </section>
 
         <SundayRecapControl leagueId={league.id} enabled={recapOperations.enabled} lastRecap={recapOperations.lastRecap} availableWeeks={recapOperations.availableWeeks} />

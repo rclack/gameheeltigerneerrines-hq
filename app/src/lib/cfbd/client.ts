@@ -24,6 +24,19 @@ export interface CfbdAccountInfo {
   };
 }
 
+export interface CfbdScoreboardGame {
+  id: number;
+  startDate: string;
+  status: "scheduled" | "in_progress" | "completed";
+  period: number | null;
+  clock: string | null;
+  situation: string | null;
+  possession: string | null;
+  lastPlay: string | null;
+  homeTeam: { id: number; name: string; points: number | null; winProbability: number | null };
+  awayTeam: { id: number; name: string; points: number | null; winProbability: number | null };
+}
+
 function apiKey() {
   const key = process.env.CFBD_API_KEY;
   if (!key) throw new CfbdError("not_configured", "CFBD is not configured.");
@@ -65,6 +78,35 @@ export async function fetchCfbdAccountInfo(fetcher: typeof fetch = fetch): Promi
     sharedPool: info.sharedPool,
     features: { scoreboard: featureRecord.scoreboard === true, livePlayByPlay: featureRecord.livePlayByPlay === true },
   };
+}
+
+export async function fetchCfbdScoreboard(fetcher: typeof fetch = fetch): Promise<CfbdScoreboardGame[]> {
+  const payload = await request("/scoreboard", { classification: "fbs" }, fetcher);
+  if (!Array.isArray(payload)) throw new CfbdError("invalid_response", "CFBD returned malformed scoreboard data.");
+  return payload.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new CfbdError("invalid_response", "CFBD returned malformed scoreboard data.");
+    const game = value as Record<string, unknown>;
+    const home = game.homeTeam as Record<string, unknown> | null;
+    const away = game.awayTeam as Record<string, unknown> | null;
+    if (typeof game.id !== "number" || typeof game.startDate !== "string" || !["scheduled", "in_progress", "completed"].includes(String(game.status)) || !home || !away || typeof home.id !== "number" || typeof home.name !== "string" || typeof away.id !== "number" || typeof away.name !== "string") {
+      throw new CfbdError("invalid_response", "CFBD returned malformed scoreboard data.");
+    }
+    const nullableNumber = (input: unknown) => typeof input === "number" && Number.isFinite(input) ? input : null;
+    const probability = (input: unknown) => { const value = nullableNumber(input); return value !== null && value > 1 && value <= 100 ? value / 100 : value; };
+    const nullableString = (input: unknown) => typeof input === "string" && input.trim() ? input : null;
+    return {
+      id: game.id,
+      startDate: game.startDate,
+      status: game.status as CfbdScoreboardGame["status"],
+      period: nullableNumber(game.period),
+      clock: nullableString(game.clock),
+      situation: nullableString(game.situation),
+      possession: nullableString(game.possession),
+      lastPlay: nullableString(game.lastPlay),
+      homeTeam: { id: home.id, name: home.name, points: nullableNumber(home.points), winProbability: probability(home.winProbability) },
+      awayTeam: { id: away.id, name: away.name, points: nullableNumber(away.points), winProbability: probability(away.winProbability) },
+    };
+  });
 }
 
 export async function testCfbdConnection(fetcher: typeof fetch = fetch) {
