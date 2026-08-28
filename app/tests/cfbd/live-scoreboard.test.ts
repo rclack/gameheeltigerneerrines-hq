@@ -2,11 +2,48 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { activeLivePollRun } from "../../src/lib/cfbd/livePollRun.ts";
+
 const migration = readFileSync(new URL("../../supabase/migrations/20260903000000_live_scoreboard_foundation.sql", import.meta.url), "utf8");
 const route = readFileSync(new URL("../../src/app/api/cron/cfbd-live/route.ts", import.meta.url), "utf8");
 const service = readFileSync(new URL("../../src/services/liveScoreboardService.ts", import.meta.url), "utf8");
 const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260903000003_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
 const activationMigration = readFileSync(new URL("../../supabase/migrations/20260903000004_live_scoreboard_drafted_game_cadence.sql", import.meta.url), "utf8");
+
+const validRunIdentity = {
+  id: "b07a2d45-67fc-4d11-81c4-86bc17fb0098",
+  lease_token: "2cb7d408-51d9-4e4f-96d1-d36c62d93073",
+};
+
+test("disabled live polling normalizes literal null and PostgREST null-field composites to no run", () => {
+  assert.equal(activeLivePollRun(null), null);
+  assert.equal(activeLivePollRun({ id: null, lease_token: null }), null);
+  assert.equal(activeLivePollRun({ id: validRunIdentity.id, lease_token: null }), null);
+  assert.equal(activeLivePollRun({ id: null, lease_token: validRunIdentity.lease_token }), null);
+});
+
+test("valid live poll identity remains authoritative", () => {
+  assert.equal(activeLivePollRun(validRunIdentity), validRunIdentity);
+  assert.equal(activeLivePollRun({ ...validRunIdentity, id: "not-a-run-id" }), null);
+});
+
+test("live poll service returns immediately for either disabled RPC shape", () => {
+  assert.match(service, /const run = activeLivePollRun\(begin\.data\);\s*if \(!run\) return null;/);
+  const noRunGuard = service.indexOf("if (!run) return null;");
+  for (const downstreamCall of [
+    "fetchCfbdAccountInfo()",
+    "fetchCfbdScoreboard()",
+    'supabase.rpc("record_live_scoreboard_call_breakdown"',
+    'supabase.rpc("complete_live_scoreboard_poll"',
+    'supabase.rpc("fail_live_scoreboard_poll"',
+  ]) assert.ok(noRunGuard >= 0 && noRunGuard < service.indexOf(downstreamCall), `${downstreamCall} must remain after the no-run return`);
+});
+
+test("route preserves unauthorized, disabled no-op, and genuine failure contracts", () => {
+  assert.match(route, /status: 401/);
+  assert.match(route, /ok: true, polled: Boolean\(run\), runId: run\?\.id \?\? null/);
+  assert.match(route, /status: 503/);
+});
 
 test("live scoreboard capability starts inert with 10/3 minute intervals and no incompatible Vercel cron", () => {
   assert.match(migration, /enabled boolean not null default false/);
@@ -56,7 +93,7 @@ test("routine live polling reuses an hourly quota sample and spends one scoreboa
   assert.match(quotaMigration, /last_quota_checked_at timestamptz/);
   assert.match(quotaMigration, /record_live_scoreboard_quota_sample/);
   assert.match(quotaMigration, /v_control\.last_quota_checked_at/);
-  assert.match(service, /trigger === "manual" \|\| liveQuotaSampleDue\(begin\.data\)/);
+  assert.match(service, /trigger === "manual" \|\| liveQuotaSampleDue\(run\)/);
   assert.equal((service.match(/fetchCfbdScoreboard\(\)/g) ?? []).length, 1);
   assert.match(service, /record_live_scoreboard_quota_sample/);
   assert.match(service, /if \(!sampledQuota\)/);

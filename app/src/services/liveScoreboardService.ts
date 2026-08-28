@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { fetchCfbdAccountInfo, fetchCfbdScoreboard } from "@/lib/cfbd/client";
 import { canonicalizeScoreboardGame, liveQuotaSampleDue, sanitizedLivePollError } from "@/lib/cfbd/live";
+import { activeLivePollRun } from "@/lib/cfbd/livePollRun";
 import type { Database, Json } from "@/types/database";
 
 export async function pollLiveScoreboard(
@@ -13,19 +14,20 @@ export async function pollLiveScoreboard(
 ) {
   const begin = await supabase.rpc("begin_live_scoreboard_poll", { target_trigger: trigger, target_league_ids: leagueIds });
   if (begin.error) throw begin.error;
-  if (!begin.data) return null;
+  const run = activeLivePollRun(begin.data);
+  if (!run) return null;
   let providerCalls = 0;
   let scoreboardCalls = 0;
   let infoCalls = 0;
   let quota = {
-    tier_name: begin.data.quota_tier,
-    monthly_limit: begin.data.quota_monthly_limit,
-    used: begin.data.quota_used,
-    remaining: begin.data.quota_remaining,
+    tier_name: run.quota_tier,
+    monthly_limit: run.quota_monthly_limit,
+    used: run.quota_used,
+    remaining: run.quota_remaining,
   };
   let sampledQuota = false;
   try {
-    if (trigger === "manual" || liveQuotaSampleDue(begin.data)) {
+    if (trigger === "manual" || liveQuotaSampleDue(run)) {
       infoCalls += 1;
       providerCalls += 1;
       const info = await fetchCfbdAccountInfo();
@@ -39,15 +41,15 @@ export async function pollLiveScoreboard(
     providerCalls += 1;
     const scoreboard = await fetchCfbdScoreboard();
     const breakdown = await supabase.rpc("record_live_scoreboard_call_breakdown", {
-      target_run_id: begin.data.id,
-      target_lease_token: begin.data.lease_token,
+      target_run_id: run.id,
+      target_lease_token: run.lease_token,
       target_scoreboard_calls: scoreboardCalls,
       target_info_calls: infoCalls,
     });
     if (breakdown.error || !breakdown.data) throw breakdown.error ?? new Error("Live scoreboard call accounting failed.");
     const complete = await supabase.rpc("complete_live_scoreboard_poll", {
-      target_run_id: begin.data.id,
-      target_lease_token: begin.data.lease_token,
+      target_run_id: run.id,
+      target_lease_token: run.lease_token,
       target_games: scoreboard.map(canonicalizeScoreboardGame) as unknown as Json,
       target_provider_calls: providerCalls,
       target_quota: quota,
@@ -65,15 +67,15 @@ export async function pollLiveScoreboard(
       } catch { /* Preserve the original provider error; this refresh is best effort. */ }
     }
     await supabase.rpc("record_live_scoreboard_call_breakdown", {
-      target_run_id: begin.data.id,
-      target_lease_token: begin.data.lease_token,
+      target_run_id: run.id,
+      target_lease_token: run.lease_token,
       target_scoreboard_calls: scoreboardCalls,
       target_info_calls: infoCalls,
     });
     const safe = sanitizedLivePollError(error);
     await supabase.rpc("fail_live_scoreboard_poll", {
-      target_run_id: begin.data.id,
-      target_lease_token: begin.data.lease_token,
+      target_run_id: run.id,
+      target_lease_token: run.lease_token,
       target_provider_calls: providerCalls,
       target_error_category: safe.category,
       target_error_message: safe.message,
