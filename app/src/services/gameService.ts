@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { LiveScoreboardGame, LiveScoreboardSnapshot } from "@/lib/cfbd/livePresentation";
 import type { CfbGame, Database, ExternalOpponent, Team, TeamRankingSnapshot } from "@/types/database";
 
 export type GameParticipant =
@@ -78,6 +79,49 @@ export async function getLeagueGames(supabase: SupabaseClient<Database>, leagueI
     const awayParticipant = participant(game.away_team_id, game.away_external_opponent_id);
     return homeParticipant && awayParticipant ? [{ ...game, homeParticipant, awayParticipant, rankings: rankings.filter((rank) => rank.game_id === game.id) }] : [];
   });
+}
+
+export async function getLivePresentationData(
+  supabase: SupabaseClient<Database>,
+  games: GameDetail[],
+): Promise<{ games: Map<string, LiveScoreboardGame>; snapshots: Map<string, LiveScoreboardSnapshot[]> }> {
+  const providerIds = [...new Set(games
+    .filter((game) => game.external_provider === "cfbd" && game.external_id)
+    .map((game) => game.external_id as string))];
+  if (!providerIds.length) return { games: new Map(), snapshots: new Map() };
+  const [liveResult, snapshotResults] = await Promise.all([
+    supabase.from("live_scoreboard_games").select("*").eq("provider", "cfbd").in("provider_game_id", providerIds),
+    Promise.all(providerIds.map((providerId) => supabase
+      .from("live_scoreboard_snapshots")
+      .select("*")
+      .eq("provider", "cfbd")
+      .eq("provider_game_id", providerId)
+      .order("fetched_at", { ascending: false })
+      .limit(2))),
+  ]);
+  if (liveResult.error) {
+    console.error(JSON.stringify({
+      event: "optional_live_presentation_read_failure",
+      stage: "current",
+      code: liveResult.error.code ?? null,
+      message: liveResult.error.message ?? "Database read failed.",
+    }));
+    return { games: new Map(), snapshots: new Map() };
+  }
+  const failedSnapshots = snapshotResults.find((result) => result.error);
+  if (failedSnapshots?.error) {
+    console.error(JSON.stringify({
+      event: "optional_live_presentation_read_failure",
+      stage: "history",
+      code: failedSnapshots.error.code ?? null,
+      message: failedSnapshots.error.message ?? "Database read failed.",
+    }));
+    return { games: new Map(), snapshots: new Map() };
+  }
+  return {
+    games: new Map((liveResult.data ?? []).map((game) => [game.provider_game_id, game])),
+    snapshots: new Map(providerIds.map((providerId, index) => [providerId, snapshotResults[index].data ?? []])),
+  };
 }
 
 export async function saveGame(supabase: SupabaseClient<Database>, input: SaveGameInput) {

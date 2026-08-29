@@ -5,6 +5,7 @@ import FavoriteTeamSelector from "@/components/league/FavoriteTeamSelector";
 import TeamNameForm from "@/components/league/TeamNameForm";
 import WeeklyLineup from "@/components/league/WeeklyLineup";
 import TeamLogo from "@/components/team/TeamLogo";
+import { liveFreshnessLabel, livePresentation } from "@/lib/cfbd/livePresentation";
 import { favoriteTeamTheme } from "@/lib/league/favorite-team-theme";
 import {
   getTeamSeasonRecord,
@@ -21,7 +22,7 @@ import {
   getLeagueDraft,
   getMemberDraftSlot,
 } from "@/services/draftService";
-import { formatGameParticipant, getLeagueGames, type GameDetail } from "@/services/gameService";
+import { formatGameParticipant, getLeagueGames, getLivePresentationData, type GameDetail } from "@/services/gameService";
 import { getLeagueRoster } from "@/services/membershipService";
 import { getLeagueStandings } from "@/services/standingsService";
 import { getMyMaterializedLineupWeeks, getOrMaterializeMyWeeklyLineup } from "@/services/lineupService";
@@ -44,6 +45,7 @@ function gameDateLabel(game: GameDetail) {
 
 function gameStatusLabel(status: string) {
   if (status === "in_progress") return "Live";
+  if (status === "completed" || status === "final") return "Final";
   if (status === "postponed") return "Postponed";
   return "Upcoming";
 }
@@ -88,7 +90,9 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
     ? await getDraftTeamIntelligence(supabase, league, myPicks.map((pick) => pick.team))
     : {};
   const myTeamIds = myPicks.map((pick) => pick.team_id);
-  const relevantGames = selectRelevantOwnerGames(games, myTeamIds, new Date());
+  const renderedAt = new Date();
+  const relevantGames = selectRelevantOwnerGames(games, myTeamIds, renderedAt);
+  const livePresentationData = await getLivePresentationData(supabase, relevantGames);
   const materializedLineupWeeks = draft?.status === "complete" ? await getMyMaterializedLineupWeeks(supabase, league.id, membership.id) : [];
   const requestedLineupWeek = requestedLineupWeekValue !== undefined && /^\d+$/.test(requestedLineupWeekValue) ? Number(requestedLineupWeekValue) : null;
   const defaultLineupWeek = relevantGames.find((game) => game.status !== "final" && game.status !== "canceled")?.week ?? standings.selectedWeek;
@@ -200,6 +204,18 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
                   {relevantGames.length ? (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {relevantGames.map((game) => {
+                        const providerId = game.external_provider === "cfbd" ? game.external_id : null;
+                        const live = providerId ? livePresentation(
+                          livePresentationData.games.get(providerId) ?? null,
+                          livePresentationData.snapshots.get(providerId) ?? [],
+                          renderedAt.getTime(),
+                        ) : null;
+                        const displayStatus = live?.status ?? game.status;
+                        const displayHomeScore = live?.homeScore ?? game.home_score;
+                        const displayAwayScore = live?.awayScore ?? game.away_score;
+                        const liveContext = live?.status === "in_progress"
+                          ? [live.period ? `Q${live.period}` : null, live.clock].filter(Boolean).join(" · ")
+                          : null;
                         const ownedIsHome = myTeamIds.includes(game.home_team_id ?? "");
                         const ownedParticipant = ownedIsHome ? game.homeParticipant : game.awayParticipant;
                         const opponent = ownedIsHome ? game.awayParticipant : game.homeParticipant;
@@ -207,9 +223,9 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
                         const opponentRanking = game.rankings.find((ranking) => ranking.team_id === opponent?.id);
                         const context = game.neutral_site ? "vs" : ownedIsHome ? "vs" : "at";
                         return (
-                          <article key={game.id} className={`rounded-xl border p-4 ${game.status === "in_progress" ? "border-orange-400 bg-orange-50" : "border-slate-200 bg-slate-50"}`}>
+                          <article key={game.id} className={`rounded-xl border p-4 ${displayStatus === "in_progress" ? "border-orange-400 bg-orange-50" : "border-slate-200 bg-slate-50"}`}>
                             <div className="flex items-center justify-between gap-2">
-                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${game.status === "in_progress" ? "bg-red-600 text-white" : "bg-blue-100 text-blue-800"}`}>{gameStatusLabel(game.status)}</span>
+                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${displayStatus === "in_progress" ? "bg-red-600 text-white" : "bg-blue-100 text-blue-800"}`}>{gameStatusLabel(displayStatus)}</span>
                               <span className="text-xs font-bold text-slate-500">Week {game.week}</span>
                             </div>
                             <div className="mt-3 flex items-center gap-3">
@@ -220,7 +236,10 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
                             <div className="flex items-center gap-2"><TeamLogo team={opponent?.kind === "internal" ? opponent.team : { school_name: formatGameParticipant(opponent) }} size="sm" decorative /><p className="font-bold text-slate-700">{formatRankedTeamName(formatGameParticipant(opponent), opponentRanking?.rank)}</p></div>
                             <div className="mt-3 border-t border-slate-200 pt-3">
                               <p className="font-bold text-blue-950">{gameDateLabel(game)}</p>
-                              {game.status === "in_progress" && game.home_score !== null && game.away_score !== null && <p className="mt-1 text-sm font-black text-red-700">Live score: {game.away_score}–{game.home_score}</p>}
+                              {displayStatus === "in_progress" && displayHomeScore !== null && displayAwayScore !== null && <p className="mt-1 text-sm font-black text-red-700">Live score: {displayAwayScore}–{displayHomeScore}</p>}
+                              {(displayStatus === "completed" || displayStatus === "final") && displayHomeScore !== null && displayAwayScore !== null && <p className="mt-1 text-sm font-black text-blue-950">Final: {displayAwayScore}–{displayHomeScore}</p>}
+                              {liveContext && <p className="mt-1 text-xs font-bold uppercase tracking-wide text-red-700">{liveContext}</p>}
+                              {live && <p className="mt-1 text-xs font-semibold text-slate-500">{liveFreshnessLabel(live.fetchedAt, renderedAt.getTime())}</p>}
                             </div>
                           </article>
                         );

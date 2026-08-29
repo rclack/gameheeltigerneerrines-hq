@@ -3,12 +3,16 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { activeLivePollRun } from "../../src/lib/cfbd/livePollRun.ts";
+import { livePresentation, validatedLiveClock, type LiveScoreboardGame, type LiveScoreboardSnapshot } from "../../src/lib/cfbd/livePresentation.ts";
 
 const migration = readFileSync(new URL("../../supabase/migrations/20260903000000_live_scoreboard_foundation.sql", import.meta.url), "utf8");
 const route = readFileSync(new URL("../../src/app/api/cron/cfbd-live/route.ts", import.meta.url), "utf8");
 const service = readFileSync(new URL("../../src/services/liveScoreboardService.ts", import.meta.url), "utf8");
 const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260903000003_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
 const activationMigration = readFileSync(new URL("../../supabase/migrations/20260903000004_live_scoreboard_drafted_game_cadence.sql", import.meta.url), "utf8");
+const phase3a2Migration = readFileSync(new URL("../../supabase/migrations/20260903000007_phase_3a_2_live_cadence_relevance_telemetry.sql", import.meta.url), "utf8");
+const leagueHome = readFileSync(new URL("../../src/app/league/[leagueId]/page.tsx", import.meta.url), "utf8");
+const gameService = readFileSync(new URL("../../src/services/gameService.ts", import.meta.url), "utf8");
 
 const validRunIdentity = {
   id: "b07a2d45-67fc-4d11-81c4-86bc17fb0098",
@@ -107,4 +111,59 @@ test("scheduled cadence is driven only by teams drafted in completed scoped leag
   assert.match(activationMigration, /join public\.draft_picks pick on pick\.draft_id = draft\.id/);
   assert.match(activationMigration, /pick\.team_id in \(game\.home_team_id, game\.away_team_id\)/);
   assert.match(activationMigration, /v_any_drafted_live/);
+});
+
+test("Phase 3A.2 anchors normal cadence to poll start without changing lease or backoff authority", () => {
+  assert.match(phase3a2Migration, /greatest\(v_run\.started_at \+ make_interval\(secs => v_interval\), v_now\)/);
+  assert.doesNotMatch(phase3a2Migration, /lease_expires_at\s*=/);
+  assert.doesNotMatch(phase3a2Migration, /fail_live_scoreboard_poll/);
+});
+
+test("Phase 3A.2 records provider, canonical, drafted-relevant, and drafted-live counts", () => {
+  for (const column of ["provider_game_count", "canonical_game_count", "drafted_relevant_game_count", "drafted_live_game_count"]) {
+    assert.match(phase3a2Migration, new RegExp(column));
+  }
+  assert.match(phase3a2Migration, /v_drafted_live := v_drafted_live \+ 1/);
+  assert.match(activationMigration, /case when v_any_drafted_live then live_interval_seconds else pregame_interval_seconds end/);
+  assert.equal((service.match(/fetchCfbdScoreboard\(\)/g) ?? []).length, 1);
+});
+
+const liveGame: LiveScoreboardGame = {
+  provider: "cfbd", provider_game_id: "401", start_at: "2026-08-29T16:00:00Z", status: "in_progress",
+  period: 4, clock: "08:21", situation: null, possession: null, last_play: null,
+  home_external_team_id: "1", home_name: "TCU", home_score: 10, home_win_probability: 0.5,
+  away_external_team_id: "2", away_name: "North Carolina", away_score: 15, away_win_probability: 0.5,
+  state_fingerprint: "current", fetched_at: "2026-08-29T19:00:00Z", changed_at: "2026-08-29T19:00:00Z",
+  first_seen_at: "2026-08-29T16:00:00Z", first_in_progress_at: "2026-08-29T16:13:00Z", first_completed_at: null,
+};
+const priorSnapshot: LiveScoreboardSnapshot = {
+  id: 1, provider: "cfbd", provider_game_id: "401", status: "in_progress", period: 4, clock: "00:07",
+  situation: null, possession: null, last_play: null, home_score: 10, home_win_probability: 0.5,
+  away_score: 15, away_win_probability: 0.5, state_fingerprint: "prior",
+  fetched_at: "2026-08-29T18:48:00Z", created_at: "2026-08-29T18:48:00Z",
+};
+
+test("website live overlay accepts fresh state and rejects stale state", () => {
+  const fresh = livePresentation(liveGame, [], new Date("2026-08-29T19:05:00Z").getTime());
+  assert.equal(fresh?.status, "in_progress");
+  assert.equal(fresh?.homeScore, 10);
+  assert.equal(livePresentation(liveGame, [], new Date("2026-08-29T19:16:00Z").getTime()), null);
+  assert.match(leagueHome, /livePresentationData/);
+  assert.match(leagueHome, /displayStatus = live\?\.status \?\? game\.status/);
+  assert.match(gameService, /optional_live_presentation_read_failure/);
+  assert.match(gameService, /return \{ games: new Map\(\), snapshots: new Map\(\) \}/);
+});
+
+test("impossible and regressive clocks are presentation-ineligible while raw snapshots remain untouched", () => {
+  assert.equal(validatedLiveClock(liveGame, [priorSnapshot]), null);
+  assert.equal(validatedLiveClock({ ...liveGame, clock: "16:00" }, []), null);
+  assert.equal(validatedLiveClock({ ...liveGame, clock: "07:59" }, [{ ...priorSnapshot, clock: "08:21" }]), "07:59");
+  assert.equal(priorSnapshot.clock, "00:07");
+});
+
+test("website overlay remains presentation-only", () => {
+  for (const forbidden of ["scoring_events", "scoring_fingerprint", "weekly_lineup", "sunday_recap", "draft_picks"]) {
+    assert.doesNotMatch(leagueHome, new RegExp(`(?:insert|update|delete).*${forbidden}`, "i"));
+  }
+  assert.match(leagueHome, /getLivePresentationData/);
 });

@@ -285,7 +285,7 @@ export type Database = {
         Insert: never; Update: never; Relationships: [];
       };
       live_scoreboard_poll_runs: {
-        Row: { id: string; provider: "cfbd"; trigger_type: "manual" | "scheduled"; league_ids: string[]; lease_token: string; started_at: string; completed_at: string | null; status: "running" | "succeeded" | "failed"; provider_calls: number; scoreboard_calls: number; info_calls: number; provider_game_count: number; relevant_game_count: number; changed_game_count: number; unchanged_game_count: number; unmatched_game_count: number; quota_tier: string | null; quota_monthly_limit: number | null; quota_used: number | null; quota_remaining: number | null; quota_checked_at: string | null; error_category: string | null; error_message: string | null };
+        Row: { id: string; provider: "cfbd"; trigger_type: "manual" | "scheduled"; league_ids: string[]; lease_token: string; started_at: string; completed_at: string | null; status: "running" | "succeeded" | "failed"; provider_calls: number; scoreboard_calls: number; info_calls: number; provider_game_count: number; relevant_game_count: number; canonical_game_count: number; drafted_relevant_game_count: number; drafted_live_game_count: number; changed_game_count: number; unchanged_game_count: number; unmatched_game_count: number; quota_tier: string | null; quota_monthly_limit: number | null; quota_used: number | null; quota_remaining: number | null; quota_checked_at: string | null; error_category: string | null; error_message: string | null };
         Insert: never; Update: never; Relationships: [];
       };
       league_recap_settings: {
