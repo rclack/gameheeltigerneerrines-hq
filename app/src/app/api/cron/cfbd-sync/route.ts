@@ -2,6 +2,7 @@ import { configuredCronLeagueIds, isAuthorizedCronRequest, runScheduledSyncBatch
 import { CfbdSyncError } from "@/lib/cfbd/diagnostics";
 import { createCronClient } from "@/lib/supabase/cron";
 import { syncScheduledCfbdSchedule } from "@/services/cfbdService";
+import { automatedScoringEnabled, runAutomatedScoringSweep, type AutomatedScoringSweepResult } from "@/lib/cfbd/automatedScoring";
 import { runScheduledRecapBatch } from "@/lib/recap/cron";
 import { isSundayInEastern, latestRecapWeek, prepareSundayRecap, RecapNotReadyError, sendPreparedSundayRecap } from "@/services/recapService";
 
@@ -20,9 +21,12 @@ export async function GET(request: Request) {
       return Response.json({ ok: false, error: "Scheduled synchronization configuration is invalid." }, { status: 503 });
     }
 
+    const scoringEnabled = automatedScoringEnabled(process.env.CFBD_AUTOMATED_SCORING_ENABLED);
+    const scoringSweeps: AutomatedScoringSweepResult[] = [];
     const outcome = await runScheduledSyncBatch(leagues, async (league) => {
       try {
-        await syncScheduledCfbdSchedule(supabase, league.id, league.season);
+        const syncRun = await syncScheduledCfbdSchedule(supabase, league.id, league.season);
+        if (scoringEnabled) scoringSweeps.push(await runAutomatedScoringSweep(supabase, league.id, league.season, syncRun.id));
         return "succeeded";
       } catch (error) {
         if (error instanceof CfbdSyncError && error.databaseError?.code === "55P03") return "skipped";
@@ -50,8 +54,17 @@ export async function GET(request: Request) {
       });
     }
 
-    const ok = outcome.failed === 0 && recaps.failed === 0;
-    return Response.json({ ok, ...outcome, recaps }, { status: ok ? 200 : 500 });
+    const scoring = {
+      enabled: scoringEnabled,
+      finalGamesExamined: scoringSweeps.reduce((total, sweep) => total + sweep.finalGamesExamined, 0),
+      alreadyCurrent: scoringSweeps.reduce((total, sweep) => total + sweep.alreadyCurrent, 0),
+      newlyScored: scoringSweeps.reduce((total, sweep) => total + sweep.newlyScored, 0),
+      reprocessed: scoringSweeps.reduce((total, sweep) => total + sweep.reprocessed, 0),
+      failed: scoringSweeps.reduce((total, sweep) => total + sweep.failed, 0),
+      failures: scoringSweeps.flatMap((sweep) => sweep.failures.map((failure) => ({ leagueId: sweep.leagueId, gameId: failure.gameId, category: failure.category }))),
+    };
+    const ok = outcome.failed === 0 && scoring.failed === 0 && recaps.failed === 0;
+    return Response.json({ ok, ...outcome, scoring, recaps }, { status: ok ? 200 : 500 });
   } catch {
     return Response.json({ ok: false, error: "Scheduled synchronization could not run." }, { status: 503 });
   }

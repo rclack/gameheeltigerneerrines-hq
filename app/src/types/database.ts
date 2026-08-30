@@ -353,6 +353,8 @@ export type Database = {
         Returns: Database["public"]["Tables"]["cfb_games"]["Row"];
       };
       process_cfb_game_scoring: { Args: { target_game_id: string }; Returns: number };
+      scheduled_process_cfb_game_scoring: { Args: { target_game_id: string }; Returns: number };
+      record_scheduled_scoring_sweep: { Args: { target_sync_run_id: string; target_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
       add_manual_scoring_event: {
         Args: { target_league_id: string; target_team_id: string; target_rule_id: string; target_week: number | null; target_event_date: string | null; target_notes: string | null };
         Returns: Database["public"]["Tables"]["scoring_events"]["Row"];

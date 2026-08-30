@@ -44,7 +44,8 @@ test("scheduled path wraps the existing sync implementation and audit failure pa
   assert.match(service, /syncCfbdScheduleInternal\(supabase, leagueId, season, true\)/);
   assert.match(service, /scheduled_fail_external_sync/);
   assert.match(service, /await failSync\(supabase, run\.id, failure, progress, scheduled\)/);
-  assert.doesNotMatch(route, /process_cfb_game_scoring|scoreGame|scoring_events/);
+  assert.match(route, /syncScheduledCfbdSchedule[\s\S]*runAutomatedScoringSweep/);
+  assert.doesNotMatch(route, /scoring_events\.(insert|update)|from\("scoring_events"\)/);
 });
 
 test("scheduled database wrappers are service-role-only and overlap guarded", () => {
