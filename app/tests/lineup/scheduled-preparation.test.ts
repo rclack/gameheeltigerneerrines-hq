@@ -6,7 +6,7 @@ import { selectPreparationWeek } from "../../src/lib/lineup/scheduledPreparation
 
 const route = readFileSync(new URL("../../src/app/api/cron/cfbd-sync/route.ts", import.meta.url), "utf8");
 const page = readFileSync(new URL("../../src/services/lineupService.ts", import.meta.url), "utf8");
-const migration = readFileSync(new URL("../../supabase/migrations/20260923182829_proactive_weekly_lineup_materialization.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../supabase/migrations/20260924014814_proactive_weekly_lineup_materialization.sql", import.meta.url), "utf8");
 
 test("the earliest future non-terminal application week is prepared", () => {
   const now = new Date("2026-09-23T16:00:00Z");
