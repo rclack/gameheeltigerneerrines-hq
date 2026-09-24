@@ -6,6 +6,7 @@ import {
   automatedScoringEnabled,
   executeAutomatedScoringGames,
   hasRequiredRankingContext,
+  scoringFailureCategory,
   type AutomatedScoringGame,
 } from "../../src/lib/cfbd/automatedScoring.ts";
 
@@ -68,6 +69,11 @@ test("invalid finals and missing rankings remain retryable without invoking scor
     { gameId: "tie", category: "invalid_final" },
     { gameId: "rankings", category: "missing_ranking_context" },
   ]);
+});
+
+test("missing authoritative lineup failures have a distinct retryable category", () => {
+  assert.equal(scoringFailureCategory({ code: "P0001", message: "Authoritative weekly lineup entry is missing for drafted team scoring" }), "missing_authoritative_lineup");
+  assert.equal(scoringFailureCategory({ code: "P0001", message: "Final score is invalid" }), "invalid_final");
 });
 
 test("scheduled wrapper reuses the existing scoring processor and is service-role only", () => {

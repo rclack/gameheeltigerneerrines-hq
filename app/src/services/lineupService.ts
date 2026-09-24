@@ -37,7 +37,7 @@ export async function getMyMaterializedLineupWeeks(
   return [...new Set(data.map((lineup) => lineup.week))];
 }
 
-export async function getOrMaterializeMyWeeklyLineup(
+export async function getMyWeeklyLineup(
   supabase: SupabaseClient<Database>,
   leagueId: string,
   memberId: string,
@@ -51,16 +51,6 @@ export async function getOrMaterializeMyWeeklyLineup(
   if (leagueError) throw leagueError;
   if (league.starters_per_week === null || league.lineups_enabled_from_week === null || week < league.lineups_enabled_from_week) return null;
 
-  const { error: materializeError } = await supabase.rpc("materialize_weekly_lineup", {
-    target_league_id: leagueId,
-    target_week: week,
-    target_member_id: memberId,
-  });
-  if (materializeError) {
-    if (materializeError.message.includes("Draft must be complete")) return null;
-    throw materializeError;
-  }
-
   const { data: lineup, error: lineupError } = await supabase
     .from("weekly_lineups")
     .select("*")
@@ -68,8 +58,9 @@ export async function getOrMaterializeMyWeeklyLineup(
     .eq("league_member_id", memberId)
     .eq("season", league.season)
     .eq("week", week)
-    .single();
+    .maybeSingle();
   if (lineupError) throw lineupError;
+  if (!lineup) return null;
 
   const { data: entries, error: entriesError } = await supabase
     .from("weekly_lineup_entries")

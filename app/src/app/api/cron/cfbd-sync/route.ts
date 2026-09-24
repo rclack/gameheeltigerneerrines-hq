@@ -5,6 +5,7 @@ import { syncScheduledCfbdSchedule } from "@/services/cfbdService";
 import { automatedScoringEnabled, runAutomatedScoringSweep, type AutomatedScoringSweepResult } from "@/lib/cfbd/automatedScoring";
 import { runScheduledRecapBatch } from "@/lib/recap/cron";
 import { isSundayInEastern, latestRecapWeek, prepareSundayRecap, RecapNotReadyError, sendPreparedSundayRecap } from "@/services/recapService";
+import { prepareScheduledWeeklyLineups, type WeeklyLineupPreparationResult } from "@/lib/lineup/scheduledPreparation";
 
 export const maxDuration = 300;
 
@@ -23,9 +24,11 @@ export async function GET(request: Request) {
 
     const scoringEnabled = automatedScoringEnabled(process.env.CFBD_AUTOMATED_SCORING_ENABLED);
     const scoringSweeps: AutomatedScoringSweepResult[] = [];
+    const lineupPreparations: WeeklyLineupPreparationResult[] = [];
     const outcome = await runScheduledSyncBatch(leagues, async (league) => {
       try {
         const syncRun = await syncScheduledCfbdSchedule(supabase, league.id, league.season);
+        lineupPreparations.push(await prepareScheduledWeeklyLineups(supabase, league.id, league.season, syncRun.id));
         if (scoringEnabled) scoringSweeps.push(await runAutomatedScoringSweep(supabase, league.id, league.season, syncRun.id));
         return "succeeded";
       } catch (error) {
@@ -63,8 +66,15 @@ export async function GET(request: Request) {
       failed: scoringSweeps.reduce((total, sweep) => total + sweep.failed, 0),
       failures: scoringSweeps.flatMap((sweep) => sweep.failures.map((failure) => ({ leagueId: sweep.leagueId, gameId: failure.gameId, category: failure.category }))),
     };
-    const ok = outcome.failed === 0 && scoring.failed === 0 && recaps.failed === 0;
-    return Response.json({ ok, ...outcome, scoring, recaps }, { status: ok ? 200 : 500 });
+    const lineupPreparation = {
+      expectedOwners: lineupPreparations.reduce((total, item) => total + item.expectedOwners, 0),
+      materializedOwners: lineupPreparations.reduce((total, item) => total + item.materializedOwners, 0),
+      alreadyCurrentOwners: lineupPreparations.reduce((total, item) => total + item.alreadyCurrentOwners, 0),
+      failed: lineupPreparations.reduce((total, item) => total + item.failed, 0),
+      leagues: lineupPreparations,
+    };
+    const ok = outcome.failed === 0 && lineupPreparation.failed === 0 && scoring.failed === 0 && recaps.failed === 0;
+    return Response.json({ ok, ...outcome, lineupPreparation, scoring, recaps }, { status: ok ? 200 : 500 });
   } catch {
     return Response.json({ ok: false, error: "Scheduled synchronization could not run." }, { status: 503 });
   }

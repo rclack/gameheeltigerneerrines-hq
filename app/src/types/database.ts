@@ -379,6 +379,9 @@ export type Database = {
       };
       set_sunday_recap_enabled: { Args: { target_league_id: string; should_enable: boolean }; Returns: Database["public"]["Tables"]["league_recap_settings"]["Row"] };
       materialize_weekly_lineup: { Args: { target_league_id: string; target_week: number; target_member_id?: string | null }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"][] };
+      scheduled_materialize_weekly_lineups: { Args: { target_league_id: string; target_week: number }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"][] };
+      get_scheduled_weekly_lineup_readiness: { Args: { target_league_id: string; target_week: number }; Returns: Json };
+      record_scheduled_weekly_lineup_preparation: { Args: { target_sync_run_id: string; target_summary: Json }; Returns: Database["public"]["Tables"]["external_sync_runs"]["Row"] };
       set_weekly_lineup_starters: { Args: { target_lineup_id: string; target_starter_team_ids: string[]; target_request_key: string }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"] | null };
       set_weekly_lineup_captain: { Args: { target_lineup_id: string; target_entry_id: string | null; target_request_key: string }; Returns: Database["public"]["Tables"]["weekly_lineups"]["Row"] | null };
       get_my_captain_usage: { Args: { target_lineup_id: string }; Returns: Array<{ draft_pick_id: string; team_id: string; allowed: number; used: number; reserved: number; remaining: number }> };

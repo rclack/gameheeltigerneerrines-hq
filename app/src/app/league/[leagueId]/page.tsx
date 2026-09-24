@@ -25,7 +25,7 @@ import {
 import { formatGameParticipant, getLeagueGames, getLivePresentationData, type GameDetail } from "@/services/gameService";
 import { getLeagueRoster } from "@/services/membershipService";
 import { getLeagueStandings } from "@/services/standingsService";
-import { getMyMaterializedLineupWeeks, getOrMaterializeMyWeeklyLineup } from "@/services/lineupService";
+import { getMyMaterializedLineupWeeks, getMyWeeklyLineup } from "@/services/lineupService";
 import { getActiveTeams } from "@/services/teamService";
 
 function pointsLabel(points: number) {
@@ -98,7 +98,7 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
   const defaultLineupWeek = relevantGames.find((game) => game.status !== "final" && game.status !== "canceled")?.week ?? standings.selectedWeek;
   const lineupWeek = requestedLineupWeek !== null && materializedLineupWeeks.includes(requestedLineupWeek) ? requestedLineupWeek : defaultLineupWeek;
   const weeklyLineup = draft?.status === "complete"
-    ? await getOrMaterializeMyWeeklyLineup(supabase, league.id, membership.id, lineupWeek)
+    ? await getMyWeeklyLineup(supabase, league.id, membership.id, lineupWeek)
     : null;
   const scoring = ownerScoringSummary(myPicks, standings.events);
   const myStanding = standings.rows.find((row) => row.memberId === membership.id);

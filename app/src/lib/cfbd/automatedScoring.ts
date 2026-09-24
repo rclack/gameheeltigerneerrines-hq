@@ -20,6 +20,7 @@ export type AutomatedScoringFailureCategory =
   | "database_read"
   | "database_write"
   | "invalid_final"
+  | "missing_authoritative_lineup"
   | "missing_ranking_context"
   | "sweep_limit_exceeded"
   | "unauthorized"
@@ -52,7 +53,9 @@ export function hasRequiredRankingContext(game: AutomatedScoringGame, rankedTeam
 
 export function scoringFailureCategory(error: unknown): AutomatedScoringFailureCategory {
   const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  const message = typeof error === "object" && error !== null && "message" in error ? String(error.message).toLowerCase() : "";
   if (code === "42501") return "unauthorized";
+  if (code === "P0001" && (message.includes("authoritative weekly lineup") || message.includes("lineup entry is missing"))) return "missing_authoritative_lineup";
   if (code === "P0001") return "invalid_final";
   if (code) return "database_write";
   return "unknown";
