@@ -5,7 +5,7 @@ import test from "node:test";
 import { eightOwnerRules, fourOwnerRules, remainingEligibleSlots, teamMatchesRosterSlot, type DraftRosterSlotDetail, type RosterRuleInput } from "../../src/lib/draft/roster-rules.ts";
 import type { Team, TeamDraftRuleMembership } from "../../src/types/database.ts";
 
-const migration = readFileSync(new URL("../../supabase/migrations/20260816041804_configurable_draft_roster_rules.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../supabase/migrations/20260816043012_configurable_draft_roster_rules.sql", import.meta.url), "utf8");
 
 function team(id: string, conference: string): Team { return { id, conference, school_name: id, short_name: id, abbreviation: id.slice(0, 4).toUpperCase(), logo_url: null, primary_color: null, secondary_color: null, active: true, created_at: "" }; }
 function materialize(rules: RosterRuleInput[]): DraftRosterSlotDetail[] {

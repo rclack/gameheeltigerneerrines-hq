@@ -6,7 +6,7 @@ import { configuredCronLeagueIds, isAuthorizedCronRequest, runScheduledSyncBatch
 
 const route = readFileSync(new URL("../../src/app/api/cron/cfbd-sync/route.ts", import.meta.url), "utf8");
 const service = readFileSync(new URL("../../src/services/cfbdService.ts", import.meta.url), "utf8");
-const migration = readFileSync(new URL("../../supabase/migrations/20260828000000_scheduled_cfbd_sync.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../supabase/migrations/20260816010014_scheduled_cfbd_sync.sql", import.meta.url), "utf8");
 const vercel = JSON.parse(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"));
 
 test("cron authorization accepts only the configured bearer secret", () => {

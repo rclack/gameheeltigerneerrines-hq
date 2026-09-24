@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(
-  new URL("../../supabase/migrations/20260816130351_revoke_anonymous_authenticated_rpcs.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260816130532_revoke_anonymous_authenticated_rpcs.sql", import.meta.url),
   "utf8",
 );
 

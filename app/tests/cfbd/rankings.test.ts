@@ -130,7 +130,7 @@ test("automated snapshots freeze after kickoff or scoring and remain repeat-safe
 });
 
 test("migration makes manual ranking corrections invalidate scoring and require reprocessing", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260826000000_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260816000006_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
   assert.match(migration, /ranking_changed[\s\S]*then null else game\.scoring_fingerprint/);
   assert.match(migration, /on conflict \(game_id, team_id\)[\s\S]*do update/);
   assert.match(migration, /v_game\.start_at <= now\(\) or v_game\.scoring_fingerprint is not null/);
@@ -138,7 +138,7 @@ test("migration makes manual ranking corrections invalidate scoring and require 
 });
 
 test("scored final transitioning to canceled or postponed voids only its active game events", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260826000000_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260816000006_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
   assert.match(migration, /existing_game\.status = 'final' and target_status <> 'final'/);
   assert.match(migration, /event\.source_type = 'game'[\s\S]*event\.source_identifier = saved_game\.id::text[\s\S]*event\.voided_at is null/);
   assert.match(migration, /void_reason = 'Game is no longer final; prior result was invalidated'/);
@@ -151,8 +151,8 @@ test("scored final transitioning to canceled or postponed voids only its active 
 });
 
 test("voided game events leave standings and My Score while re-finalized games can be processed", () => {
-  const scoringMigration = readFileSync(new URL("../../supabase/migrations/20260819000000_season_scoring.sql", import.meta.url), "utf8");
-  const currentMigration = readFileSync(new URL("../../supabase/migrations/20260826000000_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
+  const scoringMigration = readFileSync(new URL("../../supabase/migrations/20260816000001_season_scoring.sql", import.meta.url), "utf8");
+  const currentMigration = readFileSync(new URL("../../supabase/migrations/20260816000006_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
   assert.match(scoringMigration, /event\.voided_at is null/);
   assert.match(currentMigration, /game\.status[\s\S]*target_status[\s\S]*then null else game\.scoring_fingerprint/);
   assert.match(currentMigration, /target_status <> 'final'/);
@@ -160,7 +160,7 @@ test("voided game events leave standings and My Score while re-finalized games c
 });
 
 test("final to corrected final keeps existing reprocessing behavior without status invalidation voiding", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260826000000_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260816000006_automate_pregame_ranking_snapshots.sql", import.meta.url), "utf8");
   assert.match(migration, /game\.home_score, game\.away_score, game\.status/);
   assert.match(migration, /existing_game\.status = 'final' and target_status <> 'final'/);
   assert.equal("final" !== "final", false);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync(new URL("../../supabase/migrations/20260816121007_controlled_league_creation.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../supabase/migrations/20260816122457_controlled_league_creation.sql", import.meta.url), "utf8");
 const requestActions = readFileSync(new URL("../../src/app/leagues/actions.ts", import.meta.url), "utf8");
 const reviewActions = readFileSync(new URL("../../src/app/league-requests/review/actions.ts", import.meta.url), "utf8");
 const reviewPage = readFileSync(new URL("../../src/app/league-requests/review/[decision]/[token]/page.tsx", import.meta.url), "utf8");

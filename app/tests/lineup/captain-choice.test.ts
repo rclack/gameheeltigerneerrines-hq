@@ -24,7 +24,7 @@ test("Captain RPC null result is translated to the owner locked error", async ()
 });
 
 test("Captain migration contains inactive defaults and core invariants", async () => {
-  const sql = (await readFile(new URL("../../supabase/migrations/20260902000000_captain_choice.sql", import.meta.url), "utf8")).toLowerCase();
+  const sql = (await readFile(new URL("../../supabase/migrations/20260827170343_captain_choice.sql", import.meta.url), "utf8")).toLowerCase();
   for (const invariant of [
     "captain_uses_per_team", "captain_enabled_from_week", "weekly_captain_changes",
     "where is_captain", "for update of lineup", "clock_timestamp()", "order by id for update",
@@ -37,7 +37,7 @@ test("Captain migration contains inactive defaults and core invariants", async (
 });
 
 test("Captain audit privilege repair grants authenticated read-only access", async () => {
-  const sql = (await readFile(new URL("../../supabase/migrations/20260902000001_captain_audit_privilege_repair.sql", import.meta.url), "utf8")).trim().toLowerCase();
+  const sql = (await readFile(new URL("../../supabase/migrations/20260827171906_captain_audit_privilege_repair.sql", import.meta.url), "utf8")).trim().toLowerCase();
   assert.equal(sql, "revoke all on public.weekly_captain_changes from authenticated;\ngrant select on public.weekly_captain_changes to authenticated;");
 });
 
@@ -51,7 +51,7 @@ test("owner UI exposes Captain actions, neutral optional state, and usage tracke
 test("commissioner correction is protected and requires an audit reason", async () => {
   const [action, migration] = await Promise.all([
     readFile(new URL("../../src/app/commissioner/[leagueId]/captains/actions.ts", import.meta.url), "utf8"),
-    readFile(new URL("../../supabase/migrations/20260902000000_captain_choice.sql", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/migrations/20260827170343_captain_choice.sql", import.meta.url), "utf8"),
   ]);
   assert.match(action, /commissioner_id/);
   assert.match(action, /reason.length < 2/);

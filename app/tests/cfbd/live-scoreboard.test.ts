@@ -5,12 +5,12 @@ import test from "node:test";
 import { activeLivePollRun } from "../../src/lib/cfbd/livePollRun.ts";
 import { livePresentation, validatedLiveClock, type LiveScoreboardGame, type LiveScoreboardSnapshot } from "../../src/lib/cfbd/livePresentation.ts";
 
-const migration = readFileSync(new URL("../../supabase/migrations/20260903000000_live_scoreboard_foundation.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../supabase/migrations/20260828001932_live_scoreboard_foundation.sql", import.meta.url), "utf8");
 const route = readFileSync(new URL("../../src/app/api/cron/cfbd-live/route.ts", import.meta.url), "utf8");
 const service = readFileSync(new URL("../../src/services/liveScoreboardService.ts", import.meta.url), "utf8");
-const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260903000003_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
-const activationMigration = readFileSync(new URL("../../supabase/migrations/20260903000004_live_scoreboard_drafted_game_cadence.sql", import.meta.url), "utf8");
-const phase3a2Migration = readFileSync(new URL("../../supabase/migrations/20260903000007_phase_3a_2_live_cadence_relevance_telemetry.sql", import.meta.url), "utf8");
+const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260828010137_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
+const activationMigration = readFileSync(new URL("../../supabase/migrations/20260828012236_live_scoreboard_drafted_game_cadence.sql", import.meta.url), "utf8");
+const phase3a2Migration = readFileSync(new URL("../../supabase/migrations/20260829195632_phase_3a_2_live_cadence_relevance_telemetry.sql", import.meta.url), "utf8");
 const leagueHome = readFileSync(new URL("../../src/app/league/[leagueId]/page.tsx", import.meta.url), "utf8");
 const gameService = readFileSync(new URL("../../src/services/gameService.ts", import.meta.url), "utf8");
 
@@ -81,7 +81,7 @@ test("live reads are member scoped and writes/RPCs remain elevated only", () => 
 });
 
 test("forward privilege repair removes anonymous live-table access", () => {
-  const repair = readFileSync(new URL("../../supabase/migrations/20260903000001_live_scoreboard_privilege_repair.sql", import.meta.url), "utf8");
+  const repair = readFileSync(new URL("../../supabase/migrations/20260828002023_live_scoreboard_privilege_repair.sql", import.meta.url), "utf8");
   for (const table of ["live_scoreboard_games", "live_scoreboard_snapshots", "live_scoreboard_poll_runs"]) assert.match(repair, new RegExp(`revoke all on public\\.${table} from anon`));
   assert.match(repair, /revoke all on sequence public\.live_scoreboard_snapshots_id_seq from anon, authenticated/);
 });

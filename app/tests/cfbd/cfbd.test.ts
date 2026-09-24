@@ -124,7 +124,7 @@ test("CFBD entitlement diagnostics remain server-only and commissioner-authorize
 });
 
 test("CFBD import repair avoids PL/pgSQL counter and table-column ambiguity", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260821000000_cfbd_sync_counter_ambiguity_repair.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260816000003_cfbd_sync_counter_ambiguity_repair.sql", import.meta.url), "utf8");
   for (const counter of ["created", "updated", "unchanged", "skipped", "error"]) {
     assert.match(migration, new RegExp(`${counter}_count = v_${counter}_count`));
   }
@@ -183,7 +183,7 @@ test("3B I: provider-neutral display includes external classification", () => {
 });
 
 test("3B F/J-N: migration enforces participants and scores only internal teams", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260822000000_external_opponents.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260816000004_external_opponents.sql", import.meta.url), "utf8");
   assert.match(migration, /cfb_games_home_participant_exactly_one/);
   assert.match(migration, /cfb_games_away_participant_exactly_one/);
   assert.match(migration, /cfb_games_provider_has_internal_participant/);
@@ -197,7 +197,7 @@ test("3B F/J-N: migration enforces participants and scores only internal teams",
 });
 
 test("3B security repair makes provider tables browser-read-only", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260823000000_external_provider_privilege_repair.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260816000005_external_provider_privilege_repair.sql", import.meta.url), "utf8");
   for (const table of ["external_opponents", "external_team_mappings", "external_sync_runs"]) {
     assert.match(migration, new RegExp(`revoke insert, update, delete on table public\\.${table} from public, anon, authenticated`));
     assert.match(migration, new RegExp(`grant select on table public\\.${table} to authenticated`));

@@ -56,20 +56,11 @@ create table private.league_creation_review_tokens (
   constraint league_creation_review_tokens_distinct check (approve_token_hash <> deny_token_hash)
 );
 
-do $$
-declare
-  administrator_id uuid;
-  administrator_count integer;
-begin
-  select count(*) into administrator_count
-  from auth.users where lower(email) = 'cfbpooltest@gmail.com';
-  if administrator_count <> 1 then
-    raise exception 'Expected exactly one authenticated site-administrator account';
-  end if;
-  select id into administrator_id from auth.users where lower(email) = 'cfbpooltest@gmail.com';
-  insert into private.site_administrators (user_id) values (administrator_id);
-end;
-$$;
+-- The original production migration also bootstrapped the production site
+-- administrator by the environment-specific cfbpooltest@gmail.com identity.
+-- That one-time data operation is preserved verbatim under
+-- supabase/production-repairs/20260816122457_bootstrap_site_administrator.sql
+-- and is intentionally excluded from clean-environment replay.
 
 revoke all on table private.site_administrators, private.league_creation_review_tokens from public, anon, authenticated;
 

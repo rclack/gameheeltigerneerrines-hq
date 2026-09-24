@@ -9,4 +9,3 @@ select cron.schedule(
   '15 5 * * *',
   $schedule$select private.cleanup_live_scoreboard_dispatch_history();$schedule$
 );
-

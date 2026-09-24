@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync(new URL("../../supabase/migrations/20260829000000_draft_team_intelligence.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../supabase/migrations/20260816011938_draft_team_intelligence.sql", import.meta.url), "utf8");
 const service = readFileSync(new URL("../../src/services/draftService.ts", import.meta.url), "utf8");
 const room = readFileSync(new URL("../../src/components/draft/DraftRoom.tsx", import.meta.url), "utf8");
 

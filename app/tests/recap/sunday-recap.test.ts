@@ -110,7 +110,7 @@ test("scheduled batch isolates failures and keeps processing leagues", async () 
 });
 
 test("migration enforces idempotency, RLS, and service-role-only snapshot execution", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260816032427_sunday_recap_v1.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260816034421_sunday_recap_v1.sql", import.meta.url), "utf8");
   assert.match(migration, /unique \(league_id, season, week, league_member_id\)/i);
   assert.match(migration, /unique \(league_id, season, week\)/i);
   assert.match(migration, /unique \(recap_id, league_member_id\)/i);

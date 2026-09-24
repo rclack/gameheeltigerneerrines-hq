@@ -144,4 +144,3 @@ grant execute on function public.configure_live_scoreboard_dispatch_secret(text)
 revoke all on function private.reconcile_live_scoreboard_dispatches() from public, anon, authenticated, service_role;
 revoke all on function private.dispatch_live_scoreboard_poll() from public, anon, authenticated, service_role;
 revoke all on function private.cleanup_live_scoreboard_dispatch_history() from public, anon, authenticated, service_role;
-

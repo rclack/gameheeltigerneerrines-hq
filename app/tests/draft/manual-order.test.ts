@@ -5,11 +5,11 @@ import test from "node:test";
 import { isCompleteDraftOrder, mergeDraftOrder, moveDraftOrder } from "../../src/lib/draft/order.ts";
 
 const migration = readFileSync(
-  new URL("../../supabase/migrations/20260827000000_manual_draft_order.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260816001428_manual_draft_order.sql", import.meta.url),
   "utf8",
 );
 const permissionMigration = readFileSync(
-  new URL("../../supabase/migrations/20260827000001_manual_draft_order_permissions.sql", import.meta.url),
+  new URL("../../supabase/migrations/20260816001634_manual_draft_order_permissions.sql", import.meta.url),
   "utf8",
 );
 const originalDraftMigration = readFileSync(

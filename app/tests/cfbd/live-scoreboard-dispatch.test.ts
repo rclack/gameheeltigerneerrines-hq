@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const infrastructure = readFileSync(new URL("../../supabase/migrations/20260903000005_supabase_live_scoreboard_dispatch.sql", import.meta.url), "utf8");
-const schedule = readFileSync(new URL("../../supabase/migrations/20260903000006_activate_live_scoreboard_dispatch_schedule.sql", import.meta.url), "utf8");
+const infrastructure = readFileSync(new URL("../../supabase/migrations/20260828014010_supabase_live_scoreboard_dispatch.sql", import.meta.url), "utf8");
+const schedule = readFileSync(new URL("../../supabase/migrations/20260828020921_activate_live_scoreboard_dispatch_schedule.sql", import.meta.url), "utf8");
 
 test("Supabase dispatches the existing protected endpoint without embedding a credential", () => {
   assert.match(infrastructure, /create extension if not exists pg_cron/);
