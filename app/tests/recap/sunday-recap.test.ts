@@ -150,7 +150,7 @@ test("migration enforces idempotency, RLS, and service-role-only snapshot execut
 });
 
 test("recap authority repair bounds history and refreshes only unsent snapshots", () => {
-  const migration = readFileSync(new URL("../../supabase/migrations/20260925140543_repair_sunday_recap_snapshot_authority.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/20260925183124_repair_sunday_recap_snapshot_authority.sql", import.meta.url), "utf8");
   assert.match(migration, /event\.season = league_season/i);
   assert.match(migration, /event\.week between 0 and target_week/i);
   assert.match(migration, /event\.event_date <= target_week_end/i);
