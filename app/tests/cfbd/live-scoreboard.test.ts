@@ -11,8 +11,10 @@ const service = readFileSync(new URL("../../src/services/liveScoreboardService.t
 const quotaMigration = readFileSync(new URL("../../supabase/migrations/20260828010137_live_scoreboard_quota_sampling.sql", import.meta.url), "utf8");
 const activationMigration = readFileSync(new URL("../../supabase/migrations/20260828012236_live_scoreboard_drafted_game_cadence.sql", import.meta.url), "utf8");
 const phase3a2Migration = readFileSync(new URL("../../supabase/migrations/20260829195632_phase_3a_2_live_cadence_relevance_telemetry.sql", import.meta.url), "utf8");
+const observabilityMigration = readFileSync(new URL("../../supabase/migrations/20260925000830_reconcile_live_scoreboard_observability.sql", import.meta.url), "utf8");
 const leagueHome = readFileSync(new URL("../../src/app/league/[leagueId]/page.tsx", import.meta.url), "utf8");
 const gameService = readFileSync(new URL("../../src/services/gameService.ts", import.meta.url), "utf8");
+const dashboard = readFileSync(new URL("../../src/components/commissioner/ScoringDashboard.tsx", import.meta.url), "utf8");
 
 const validRunIdentity = {
   id: "b07a2d45-67fc-4d11-81c4-86bc17fb0098",
@@ -91,6 +93,25 @@ test("polling has a lease, local counters, quota cap, and provider backoff", () 
   assert.match(migration, /monthly_call_cap integer not null default 24000/);
   assert.match(migration, /sum\(provider_calls\)/);
   assert.match(migration, /least\(3600, 180/);
+});
+
+test("expired live polls are terminalized without changing cadence or provider behavior", () => {
+  assert.match(observabilityMigration, /status = 'failed'/);
+  assert.match(observabilityMigration, /error_category = 'abandoned_expired_lease'/);
+  assert.match(observabilityMigration, /provider_calls = greatest\(provider_calls, scoreboard_calls \+ info_calls\)/);
+  assert.match(observabilityMigration, /started_at < v_now - interval '5 minutes'/);
+  assert.doesNotMatch(observabilityMigration, /set\s+(?:pregame|live)_interval_seconds/i);
+  assert.doesNotMatch(observabilityMigration, /update public\.live_scoreboard_games/);
+  assert.doesNotMatch(observabilityMigration, /update public\.live_scoreboard_snapshots/);
+});
+
+test("telemetry labels internal attempts separately from CFBD metered usage", () => {
+  assert.match(observabilityMigration, /Internal count of CFBD request attempts/);
+  assert.match(observabilityMigration, /Provider-reported metered usage sampled from CFBD \/info/);
+  assert.match(dashboard, /Request Attempts/);
+  assert.match(dashboard, /CFBD Metered Usage/);
+  assert.match(dashboard, /scoreboard_calls/);
+  assert.match(dashboard, /info_calls/);
 });
 
 test("routine live polling reuses an hourly quota sample and spends one scoreboard call", () => {

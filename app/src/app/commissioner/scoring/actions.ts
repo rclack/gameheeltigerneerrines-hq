@@ -129,7 +129,7 @@ export async function pollCfbdLiveScoreboardAction(leagueId: string): Promise<Sc
     const leagueIds = configuredCronLeagueIds(process.env.CFBD_CRON_LEAGUE_IDS);
     const run = await pollLiveScoreboard(createCronClient(), leagueIds, "manual");
     revalidatePath(`/commissioner/${leagueId}/scoring`);
-    return run ? { success: `Live scoreboard poll succeeded: ${run.relevant_game_count} relevant, ${run.changed_game_count} changed, ${run.unchanged_game_count} unchanged, ${run.provider_calls} provider calls.` } : { success: "Live scoreboard poll was not due." };
+    return run ? { success: `Live scoreboard poll succeeded: ${run.relevant_game_count} relevant, ${run.changed_game_count} changed, ${run.unchanged_game_count} unchanged, ${run.provider_calls} CFBD request attempts.` } : { success: "Live scoreboard poll was not due." };
   } catch {
     return { error: "Live scoreboard polling failed. Review the protected poll diagnostics." };
   }
