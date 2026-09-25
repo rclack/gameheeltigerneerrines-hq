@@ -176,7 +176,16 @@ Use disposable accounts and a disposable league where a mutation is necessary.
 11. Run one disposable-league CFBD schedule synchronization. Confirm the sync audit succeeds and no scoring event or owner point is created by synchronization.
 12. Confirm final imported games still require the commissioner to select **Process Scoring**.
 13. Confirm owner and anonymous users cannot access commissioner mutations.
-14. Confirm `/api/health` exposes only status/configuration booleans and no URL, key, token, header, or provider response.
+14. Confirm `/api/health` exposes only status/configuration booleans and safe deployment provenance; it must not expose a URL, key, token, header, or provider response.
+
+## 8. Production provenance audit
+
+1. Read `https://gameheeltigerneerrines.com/api/health` and record `deployment.gitCommitSha`.
+2. Compare that full SHA with `origin/main`.
+3. Inspect the active Vercel deployment and compare its Git source SHA with the same value.
+4. Report any mismatch immediately; do not infer provenance from timestamps.
+
+Vercel supplies `VERCEL_GIT_COMMIT_SHA` for Git-triggered builds and runtime. Local development returns `null` provenance fields when that metadata is unavailable.
 
 Do not rerun seed data or alter the established development league during smoke testing.
 

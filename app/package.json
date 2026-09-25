@@ -15,7 +15,8 @@
     "test:draft": "node --no-warnings --test --experimental-strip-types tests/draft/*.test.ts",
     "test:recap": "node --no-warnings --test --experimental-strip-types tests/recap/*.test.ts",
     "test:league-creation": "node --no-warnings --test --experimental-strip-types tests/league-creation/*.test.ts",
-    "test:lineup": "node --no-warnings --test --experimental-strip-types tests/lineup/*.test.ts"
+    "test:lineup": "node --no-warnings --test --experimental-strip-types tests/lineup/*.test.ts",
+    "test:health": "node --no-warnings --test --experimental-strip-types tests/health/*.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
