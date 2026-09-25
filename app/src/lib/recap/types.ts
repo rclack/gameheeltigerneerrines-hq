@@ -31,7 +31,7 @@ export interface RecapEvent {
 
 export interface RecapFact {
   id: string;
-  label: "Biggest Mover" | "Toughest Saturday" | "Top Saturday" | "Impact Play" | "Week in Review";
+  label: "Biggest Mover" | "Toughest Saturday" | "Top Saturday" | "Impact Play" | "Bench Watch" | "Week in Review";
   text: string;
   priority: number;
   eventId: string | null;

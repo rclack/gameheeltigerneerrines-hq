@@ -6,8 +6,9 @@ import { buildSundayRecapEmail } from "@/lib/email/sundayRecapEmail";
 import { sendSundayRecapEmail } from "@/lib/email/resend";
 import { canonicalRecapJson } from "@/lib/recap/canonicalJson";
 import { assessRecapReadiness, buildVerifiedRecapPayload } from "@/lib/recap/dataset";
-import { recapGenerationFailureMessage } from "@/lib/recap/generationFailure";
-import { generateRecapNarrative, SUNDAY_RECAP_MODEL } from "@/lib/recap/narrative";
+import { SUNDAY_RECAP_FALLBACK_MODEL } from "@/lib/recap/fallbackNarrative";
+import { generateNarrativeWithFallback } from "@/lib/recap/generateNarrative";
+import { generateRecapNarrative } from "@/lib/recap/narrative";
 import { pendingRecapRecipients } from "@/lib/recap/delivery";
 import { asJson, type RecapNarrative, type VerifiedRecapPayload } from "@/lib/recap/types";
 import { getSiteOrigin } from "@/lib/site-url";
@@ -83,7 +84,7 @@ export async function prepareSundayRecap(
   }
   const factualPayloadChanged = canonicalRecapJson(recapPayload(recap.factual_payload)) !== canonicalRecapJson(payload);
   if (["sending", "sent"].includes(recap.status)) return recap;
-  if (recap.narrative && ["generated", "failed"].includes(recap.status) && !factualPayloadChanged) return recap;
+  if (recap.narrative && ["generated", "failed"].includes(recap.status) && !factualPayloadChanged && recap.model !== SUNDAY_RECAP_FALLBACK_MODEL) return recap;
 
   const claim = await supabase.from("sunday_recaps").update({ status: "generating", factual_payload: asJson(payload), narrative: null, model: null, generated_at: null, error_message: null }).eq("id", recap.id).in("status", ["draft", "generated", "failed"]).select("*").maybeSingle();
   if (claim.error) throw claim.error;
@@ -93,17 +94,10 @@ export async function prepareSundayRecap(
     return latest.data;
   }
 
-  try {
-    const narrative = await generate(payload);
-    const saved = await supabase.from("sunday_recaps").update({ status: "generated", narrative: asJson(narrative), model: SUNDAY_RECAP_MODEL, generated_at: new Date().toISOString(), error_message: null }).eq("id", recap.id).eq("status", "generating").select("*").single();
-    if (saved.error) throw saved.error;
-    return saved.data;
-  } catch (error) {
-    const configuration = error instanceof Error && error.message.includes("not configured");
-    await supabase.from("sunday_recaps").update({ status: "failed", error_message: configuration ? "AI generation is not configured." : recapGenerationFailureMessage(error) }).eq("id", recap.id).eq("status", "generating");
-    if (configuration) throw new RecapConfigurationError("Sunday Recap AI is not configured.");
-    throw error;
-  }
+  const result = await generateNarrativeWithFallback(payload, generate);
+  const saved = await supabase.from("sunday_recaps").update({ status: "generated", narrative: asJson(result.narrative), model: result.model, generated_at: new Date().toISOString(), error_message: result.aiFailure }).eq("id", recap.id).eq("status", "generating").select("*").single();
+  if (saved.error) throw saved.error;
+  return saved.data;
 }
 
 export async function sendPreparedSundayRecap(

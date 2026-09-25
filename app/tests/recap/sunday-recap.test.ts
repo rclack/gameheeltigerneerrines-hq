@@ -5,6 +5,9 @@ import test from "node:test";
 import { assessRecapReadiness, buildVerifiedRecapPayload, type RecapMemberInput, type SnapshotInput } from "../../src/lib/recap/dataset.ts";
 import { canonicalRecapJson } from "../../src/lib/recap/canonicalJson.ts";
 import { recapGenerationFailureMessage } from "../../src/lib/recap/generationFailure.ts";
+import { renderDeterministicRecapNarrative } from "../../src/lib/recap/fallbackNarrative.ts";
+import { generateNarrativeWithFallback } from "../../src/lib/recap/generateNarrative.ts";
+import { SUNDAY_RECAP_FALLBACK_MODEL } from "../../src/lib/recap/models.ts";
 import { pendingRecapRecipients } from "../../src/lib/recap/delivery.ts";
 import { runScheduledRecapBatch } from "../../src/lib/recap/cron.ts";
 import { validateRecapNarrative } from "../../src/lib/recap/narrativeValidation.ts";
@@ -95,7 +98,8 @@ test("bench events remain certified facts but cannot become official impact stor
   ]);
   const bench = result.events.find((event) => event.id === "bench-event");
   assert.deepEqual({ lineup: bench?.lineupStatus, counts: bench?.countsForStandings }, { lineup: "bench", counts: false });
-  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event"), false);
+  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event" && fact.label === "Impact Play"), false);
+  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event" && fact.label === "Bench Watch"), true);
 });
 
 test("recap payload equality is stable across object key order and detects factual changes", () => {
@@ -123,10 +127,59 @@ test("AI failures are categorized without storing provider response details", ()
   assert.equal(recapGenerationFailureMessage(new Error("The AI response did not match the recap format.")), "AI narrative validation failed.");
 });
 
+test("AI success remains the preferred narrative path", async () => {
+  const verified = payload();
+  const generated = { subjectHook: "Saturday delivered", opening: "The pool had a lively week.", stories: [{ factId: verified.facts[0].id, reaction: "A strong showing." }], closing: "On to the next slate." };
+  const result = await generateNarrativeWithFallback(verified, async () => generated);
+  assert.deepEqual(result.narrative, generated);
+  assert.equal(result.model, "gpt-5-mini");
+  assert.equal(result.aiFailure, null);
+});
+
+test("AI 429 and generic provider failures render a certified deterministic fallback", async () => {
+  const verified = payload();
+  for (const failure of [{ status: 429 }, new Error("network unavailable")]) {
+    const result = await generateNarrativeWithFallback(verified, async () => { throw failure; });
+    assert.equal(result.model, SUNDAY_RECAP_FALLBACK_MODEL);
+    assert.ok(result.aiFailure);
+    assert.deepEqual(result.narrative, renderDeterministicRecapNarrative(verified));
+    assert.ok(result.narrative.stories.every((story) => verified.facts.some((fact) => fact.id === story.factId)));
+  }
+});
+
+test("deterministic fallback handles ties and zero-point owners without inventing a sole leader", () => {
+  const verified = payload([{ weekly_points: 0, total_points: 8 }, { weekly_points: 0, total_points: 8 }], []);
+  const first = renderDeterministicRecapNarrative(verified);
+  const second = renderDeterministicRecapNarrative(verified);
+  assert.deepEqual(first, second);
+  assert.match(first.opening, /no positive official scoring movement/i);
+  assert.doesNotMatch(first.opening, /\b(?:led|sole|winner)\b/i);
+});
+
+test("fallback Captain and bench stories use only certified fact-card formatting", () => {
+  const verified = payload([], [
+    scoringEvent({ points: 8, base_points: 4, scoring_multiplier: 2, captain_at_scoring: true }),
+    scoringEvent({ id: "bench-event", points: -3, base_points: -3, counts_for_standings: false, lineup_status_at_scoring: "bench", team_id: georgia.id }),
+  ]);
+  const captain = verified.facts.find((fact) => fact.eventId === "event-1");
+  const bench = verified.facts.find((fact) => fact.eventId === "bench-event");
+  assert.match(captain?.text ?? "", /Captain \(\+4 × 2 = \+8\)/);
+  assert.match(bench?.text ?? "", /benched team, 0 counted/);
+  const narrative = renderDeterministicRecapNarrative(verified);
+  assert.ok(narrative.stories.every((story) => verified.facts.some((fact) => fact.id === story.factId)));
+});
+
+test("fallback orchestration keeps unsent records reusable and sent recaps immutable", () => {
+  const service = readFileSync(new URL("../../src/services/recapService.ts", import.meta.url), "utf8");
+  assert.match(service, /recap\.model !== SUNDAY_RECAP_FALLBACK_MODEL/);
+  assert.match(service, /\["sending", "sent"\]\.includes\(recap\.status\)/);
+  assert.match(service, /status: "generated"[\s\S]*error_message: result\.aiFailure/);
+});
+
 test("Sunday Recap uses the supported cost-efficient API model", () => {
-  const narrative = readFileSync(new URL("../../src/lib/recap/narrative.ts", import.meta.url), "utf8");
-  assert.match(narrative, /SUNDAY_RECAP_MODEL = "gpt-5-mini"/);
-  assert.doesNotMatch(narrative, /gpt-5\.4-mini/);
+  const models = readFileSync(new URL("../../src/lib/recap/models.ts", import.meta.url), "utf8");
+  assert.match(models, /SUNDAY_RECAP_MODEL = "gpt-5-mini"/);
+  assert.doesNotMatch(models, /gpt-5\.4-mini/);
 });
 
 test("repeat delivery skips recipients already marked sent", () => {

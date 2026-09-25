@@ -116,6 +116,12 @@ export function buildVerifiedRecapPayload(input: {
     const scoring = event.captainApplied ? ` as Captain (${signed(event.basePoints)} × 2 = ${signed(event.points)})` : ` (${signed(event.points)})`;
     facts.push({ id: `event:${event.id}`, label: "Impact Play", text: `${event.ownerName}'s ${event.teamName} recorded ${event.scoringReason}${scoring}${opponent}${result}.`, priority, eventId: event.id, memberId: ownerByTeam.get(input.events.find((item) => item.id === event.id)?.team_id ?? "") ?? null });
   }
+  const benchEvent = uniqueExtreme(events.filter((event) => !event.countsForStandings && event.lineupStatus === "bench"), (event) => Math.abs(event.points), "max", (value) => value > 0);
+  if (benchEvent) {
+    const opponent = benchEvent.opponentName ? ` against ${benchEvent.opponentPregameRank ? `#${benchEvent.opponentPregameRank} ` : ""}${benchEvent.opponentName}` : "";
+    const result = benchEvent.result && benchEvent.finalScore ? ` in a ${benchEvent.finalScore} ${benchEvent.result}` : "";
+    facts.push({ id: `bench:${benchEvent.id}`, label: "Bench Watch", text: `${benchEvent.ownerName}'s ${benchEvent.teamName} produced ${signed(benchEvent.points)} potential points${opponent}${result}; as a benched team, 0 counted toward the official standings.`, priority: 65, eventId: benchEvent.id, memberId: ownerByTeam.get(input.events.find((item) => item.id === benchEvent.id)?.team_id ?? "") ?? null });
+  }
   if (!facts.length) facts.push({ id: `week:${input.week}:quiet`, label: "Week in Review", text: `Week ${input.week} produced no active scoring changes in the league.`, priority: 10, eventId: null, memberId: null });
 
   return {
