@@ -6,6 +6,7 @@ import { buildSundayRecapEmail } from "@/lib/email/sundayRecapEmail";
 import { sendSundayRecapEmail } from "@/lib/email/resend";
 import { canonicalRecapJson } from "@/lib/recap/canonicalJson";
 import { assessRecapReadiness, buildVerifiedRecapPayload } from "@/lib/recap/dataset";
+import { recapGenerationFailureMessage } from "@/lib/recap/generationFailure";
 import { generateRecapNarrative, SUNDAY_RECAP_MODEL } from "@/lib/recap/narrative";
 import { pendingRecapRecipients } from "@/lib/recap/delivery";
 import { asJson, type RecapNarrative, type VerifiedRecapPayload } from "@/lib/recap/types";
@@ -99,7 +100,7 @@ export async function prepareSundayRecap(
     return saved.data;
   } catch (error) {
     const configuration = error instanceof Error && error.message.includes("not configured");
-    await supabase.from("sunday_recaps").update({ status: "failed", error_message: configuration ? "AI generation is not configured." : "AI narrative generation failed." }).eq("id", recap.id).eq("status", "generating");
+    await supabase.from("sunday_recaps").update({ status: "failed", error_message: configuration ? "AI generation is not configured." : recapGenerationFailureMessage(error) }).eq("id", recap.id).eq("status", "generating");
     if (configuration) throw new RecapConfigurationError("Sunday Recap AI is not configured.");
     throw error;
   }

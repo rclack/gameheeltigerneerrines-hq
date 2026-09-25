@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { assessRecapReadiness, buildVerifiedRecapPayload, type RecapMemberInput, type SnapshotInput } from "../../src/lib/recap/dataset.ts";
 import { canonicalRecapJson } from "../../src/lib/recap/canonicalJson.ts";
+import { recapGenerationFailureMessage } from "../../src/lib/recap/generationFailure.ts";
 import { pendingRecapRecipients } from "../../src/lib/recap/delivery.ts";
 import { runScheduledRecapBatch } from "../../src/lib/recap/cron.ts";
 import { validateRecapNarrative } from "../../src/lib/recap/narrativeValidation.ts";
@@ -114,6 +115,18 @@ test("AI narrative accepts verified fact references and rejects invented details
   assert.deepEqual(validateRecapNarrative(verified, valid), valid);
   assert.throws(() => validateRecapNarrative(verified, { ...valid, opening: "Auburn added 9 points." }), /outside the verified fact cards/);
   assert.throws(() => validateRecapNarrative(verified, { ...valid, stories: [{ factId: "invented", reaction: "Chaos." }] }), /unverified recap fact/);
+});
+
+test("AI failures are categorized without storing provider response details", () => {
+  assert.equal(recapGenerationFailureMessage({ status: 404, code: "model_not_found", message: "sensitive provider detail" }), "AI narrative model is unavailable.");
+  assert.equal(recapGenerationFailureMessage({ status: 429 }), "AI provider quota or rate limit prevented generation.");
+  assert.equal(recapGenerationFailureMessage(new Error("The AI response did not match the recap format.")), "AI narrative validation failed.");
+});
+
+test("Sunday Recap uses the supported cost-efficient API model", () => {
+  const narrative = readFileSync(new URL("../../src/lib/recap/narrative.ts", import.meta.url), "utf8");
+  assert.match(narrative, /SUNDAY_RECAP_MODEL = "gpt-5-mini"/);
+  assert.doesNotMatch(narrative, /gpt-5\.4-mini/);
 });
 
 test("repeat delivery skips recipients already marked sent", () => {

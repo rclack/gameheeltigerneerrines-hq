@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import type { RecapNarrative, VerifiedRecapPayload } from "./types";
 import { validateRecapNarrative } from "./narrativeValidation";
 
-export const SUNDAY_RECAP_MODEL = "gpt-5.4-mini";
+export const SUNDAY_RECAP_MODEL = "gpt-5-mini";
 
 const narrativeSchema = {
   type: "object",
