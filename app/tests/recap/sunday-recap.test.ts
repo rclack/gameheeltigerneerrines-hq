@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { assessRecapReadiness, buildVerifiedRecapPayload, type RecapMemberInput, type SnapshotInput } from "../../src/lib/recap/dataset.ts";
+import { canonicalRecapJson } from "../../src/lib/recap/canonicalJson.ts";
 import { pendingRecapRecipients } from "../../src/lib/recap/delivery.ts";
 import { runScheduledRecapBatch } from "../../src/lib/recap/cron.ts";
 import { validateRecapNarrative } from "../../src/lib/recap/narrativeValidation.ts";
@@ -86,6 +87,21 @@ test("voided/corrected events stay excluded by requiring the active-event input"
   assert.equal(result.events.some((event) => event.id === "event-1"), false);
 });
 
+test("bench events remain certified facts but cannot become official impact stories", () => {
+  const result = payload([], [
+    scoringEvent(),
+    scoringEvent({ id: "bench-event", points: 99, counts_for_standings: false, lineup_status_at_scoring: "bench" }),
+  ]);
+  const bench = result.events.find((event) => event.id === "bench-event");
+  assert.deepEqual({ lineup: bench?.lineupStatus, counts: bench?.countsForStandings }, { lineup: "bench", counts: false });
+  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event"), false);
+});
+
+test("recap payload equality is stable across object key order and detects factual changes", () => {
+  assert.equal(canonicalRecapJson({ week: 3, league: "a" }), canonicalRecapJson({ league: "a", week: 3 }));
+  assert.notEqual(canonicalRecapJson({ total: 4 }), canonicalRecapJson({ total: 5 }));
+});
+
 test("readiness blocks unprocessed finals and permits scoring-current or canceled weeks", () => {
   assert.equal(assessRecapReadiness([game({ scoring_fingerprint: null, scored_at: null })], 4).ready, false);
   assert.equal(assessRecapReadiness([game({ status: "scheduled", scoring_fingerprint: null, scored_at: null })], 4).ready, false);
@@ -118,6 +134,16 @@ test("migration enforces idempotency, RLS, and service-role-only snapshot execut
   assert.match(migration, /revoke all on function public\.create_weekly_recap_snapshot\(uuid, integer\) from public, anon, authenticated/i);
   assert.match(migration, /grant execute on function public\.create_weekly_recap_snapshot\(uuid, integer\) to service_role/i);
   assert.doesNotMatch(migration, /grant select, insert, update, delete on public\.weekly_recap_snapshots/i);
+});
+
+test("recap authority repair bounds history and refreshes only unsent snapshots", () => {
+  const migration = readFileSync(new URL("../../supabase/migrations/20260925140543_repair_sunday_recap_snapshot_authority.sql", import.meta.url), "utf8");
+  assert.match(migration, /event\.season = league_season/i);
+  assert.match(migration, /event\.week between 0 and target_week/i);
+  assert.match(migration, /event\.event_date <= target_week_end/i);
+  assert.match(migration, /recap\.status = 'sent'/i);
+  assert.match(migration, /on conflict \(league_id, season, week, league_member_id\) do update/i);
+  assert.match(migration, /revoke all on function public\.create_weekly_recap_snapshot\(uuid, integer\) from public, anon, authenticated/i);
 });
 
 test("commissioner actions authorize before creating an elevated client", () => {

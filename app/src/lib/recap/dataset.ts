@@ -68,8 +68,8 @@ export function buildVerifiedRecapPayload(input: {
     };
   }).sort((left, right) => left.position - right.position || left.ownerName.localeCompare(right.ownerName));
 
-  const events: RecapEvent[] = input.events.filter((event) => event.week === input.week && event.counts_for_standings !== false).flatMap((event) => {
-    const memberId = ownerByTeam.get(event.team_id);
+  const events: RecapEvent[] = input.events.filter((event) => event.week === input.week).flatMap((event) => {
+    const memberId = event.league_member_id ?? ownerByTeam.get(event.team_id);
     const member = memberId ? memberById.get(memberId) : null;
     const team = teamById.get(event.team_id);
     if (!member || !team) return [];
@@ -91,6 +91,8 @@ export function buildVerifiedRecapPayload(input: {
       basePoints: event.base_points ?? event.points,
       scoringMultiplier: event.scoring_multiplier ?? 1,
       captainApplied: event.captain_at_scoring ?? false,
+      lineupStatus: event.lineup_status_at_scoring ?? null,
+      countsForStandings: event.counts_for_standings !== false,
       points: event.points,
       opponentPregameRank: ranking?.rank ?? null,
       rankingSource: ranking?.ranking_source ?? null,
@@ -104,8 +106,9 @@ export function buildVerifiedRecapPayload(input: {
   if (toughest) facts.push({ id: `tough:${toughest.memberId}`, label: "Toughest Saturday", text: `${toughest.ownerName} had the league's toughest week at ${signed(toughest.weeklyPoints)} points and now sits at #${toughest.position} with ${toughest.totalPoints} total.`, priority: 90, eventId: null, memberId: toughest.memberId });
   const topWeek = uniqueExtreme(standings, (row) => row.weeklyPoints, "max", (value) => value > 0);
   if (topWeek) facts.push({ id: `top:${topWeek.memberId}`, label: "Top Saturday", text: `${topWeek.ownerName} led the league this week with ${signed(topWeek.weeklyPoints)} points and now has ${topWeek.totalPoints} total at #${topWeek.position}.`, priority: 95, eventId: null, memberId: topWeek.memberId });
-  const positive = uniqueExtreme(events, (event) => event.points, "max", (value) => value > 0);
-  const negative = uniqueExtreme(events, (event) => event.points, "min", (value) => value < 0);
+  const countingEvents = events.filter((event) => event.countsForStandings);
+  const positive = uniqueExtreme(countingEvents, (event) => event.points, "max", (value) => value > 0);
+  const negative = uniqueExtreme(countingEvents, (event) => event.points, "min", (value) => value < 0);
   for (const [event, priority] of [[positive, 80], [negative, 75]] as const) {
     if (!event) continue;
     const opponent = event.opponentName ? ` against ${event.opponentPregameRank ? `#${event.opponentPregameRank} ` : ""}${event.opponentName}` : "";

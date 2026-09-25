@@ -22,6 +22,8 @@ export interface RecapEvent {
   basePoints: number;
   scoringMultiplier: 1 | 2;
   captainApplied: boolean;
+  lineupStatus: "starter" | "bench" | "no_game" | "legacy" | null;
+  countsForStandings: boolean;
   points: number;
   opponentPregameRank: number | null;
   rankingSource: string | null;

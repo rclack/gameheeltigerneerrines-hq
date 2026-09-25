@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { buildSundayRecapEmail } from "@/lib/email/sundayRecapEmail";
 import { sendSundayRecapEmail } from "@/lib/email/resend";
+import { canonicalRecapJson } from "@/lib/recap/canonicalJson";
 import { assessRecapReadiness, buildVerifiedRecapPayload } from "@/lib/recap/dataset";
 import { generateRecapNarrative, SUNDAY_RECAP_MODEL } from "@/lib/recap/narrative";
 import { pendingRecapRecipients } from "@/lib/recap/delivery";
@@ -79,9 +80,11 @@ export async function prepareSundayRecap(
     if (existing.error) throw existing.error;
     recap = existing.data;
   }
-  if (recap.narrative && ["generated", "sending", "sent", "failed"].includes(recap.status)) return recap;
+  const factualPayloadChanged = canonicalRecapJson(recapPayload(recap.factual_payload)) !== canonicalRecapJson(payload);
+  if (["sending", "sent"].includes(recap.status)) return recap;
+  if (recap.narrative && ["generated", "failed"].includes(recap.status) && !factualPayloadChanged) return recap;
 
-  const claim = await supabase.from("sunday_recaps").update({ status: "generating", factual_payload: asJson(payload), error_message: null }).eq("id", recap.id).in("status", ["draft", "failed"]).is("narrative", null).select("*").maybeSingle();
+  const claim = await supabase.from("sunday_recaps").update({ status: "generating", factual_payload: asJson(payload), narrative: null, model: null, generated_at: null, error_message: null }).eq("id", recap.id).in("status", ["draft", "generated", "failed"]).select("*").maybeSingle();
   if (claim.error) throw claim.error;
   if (!claim.data) {
     const latest = await supabase.from("sunday_recaps").select("*").eq("id", recap.id).single();
