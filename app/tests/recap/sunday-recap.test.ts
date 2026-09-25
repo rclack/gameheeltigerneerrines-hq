@@ -169,6 +169,18 @@ test("fallback Captain and bench stories use only certified fact-card formatting
   assert.ok(narrative.stories.every((story) => verified.facts.some((fact) => fact.id === story.factId)));
 });
 
+test("tied bench performances select one stable deterministic non-counting example", () => {
+  const verified = payload([], [
+    scoringEvent(),
+    scoringEvent({ id: "bench-z", points: 3, counts_for_standings: false, lineup_status_at_scoring: "bench" }),
+    scoringEvent({ id: "bench-a", points: -3, counts_for_standings: false, lineup_status_at_scoring: "bench" }),
+  ]);
+  const benchFacts = verified.facts.filter((fact) => fact.label === "Bench Watch");
+  assert.equal(benchFacts.length, 1);
+  assert.equal(benchFacts[0].eventId, "bench-a");
+  assert.match(benchFacts[0].text, /0 counted toward the official standings/);
+});
+
 test("fallback orchestration keeps unsent records reusable and sent recaps immutable", () => {
   const service = readFileSync(new URL("../../src/services/recapService.ts", import.meta.url), "utf8");
   assert.match(service, /recap\.model !== SUNDAY_RECAP_FALLBACK_MODEL/);

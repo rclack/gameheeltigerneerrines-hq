@@ -116,7 +116,9 @@ export function buildVerifiedRecapPayload(input: {
     const scoring = event.captainApplied ? ` as Captain (${signed(event.basePoints)} × 2 = ${signed(event.points)})` : ` (${signed(event.points)})`;
     facts.push({ id: `event:${event.id}`, label: "Impact Play", text: `${event.ownerName}'s ${event.teamName} recorded ${event.scoringReason}${scoring}${opponent}${result}.`, priority, eventId: event.id, memberId: ownerByTeam.get(input.events.find((item) => item.id === event.id)?.team_id ?? "") ?? null });
   }
-  const benchEvent = uniqueExtreme(events.filter((event) => !event.countsForStandings && event.lineupStatus === "bench"), (event) => Math.abs(event.points), "max", (value) => value > 0);
+  const benchEvent = events
+    .filter((event) => !event.countsForStandings && event.lineupStatus === "bench" && event.points !== 0)
+    .sort((left, right) => Math.abs(right.points) - Math.abs(left.points) || left.id.localeCompare(right.id))[0];
   if (benchEvent) {
     const opponent = benchEvent.opponentName ? ` against ${benchEvent.opponentPregameRank ? `#${benchEvent.opponentPregameRank} ` : ""}${benchEvent.opponentName}` : "";
     const result = benchEvent.result && benchEvent.finalScore ? ` in a ${benchEvent.finalScore} ${benchEvent.result}` : "";
