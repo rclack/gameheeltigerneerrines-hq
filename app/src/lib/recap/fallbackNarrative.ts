@@ -10,12 +10,13 @@ function joinNames(names: string[]) {
 }
 function reactionFor(fact: RecapFact) {
   switch (fact.label) {
-    case "Biggest Mover": return "That move reshaped the league table.";
-    case "Toughest Saturday": return "The official ledger made it a difficult week.";
-    case "Top Saturday": return "That was the strongest official scoring week in the pool.";
-    case "Impact Play": return "That result made a verified difference in the official scoring ledger.";
-    case "Bench Watch": return "Those points remained potential points and did not affect the official standings.";
-    default: return "The certified weekly ledger tells the story.";
+    case "Biggest Mover": return "That jump tightened up the race.";
+    case "Biggest Swing": return "One scoring swing can move the table fast.";
+    case "Week Leader": return "That was the week's top score.";
+    case "Captain Watch": return "The Captain call made every point count twice.";
+    case "Game Impact": return "That game made a real difference this week.";
+    case "Bench Pain": return "Those points stayed on the bench and did not count.";
+    default: return "On to the next slate.";
   }
 }
 
@@ -24,9 +25,9 @@ export function renderDeterministicRecapNarrative(payload: VerifiedRecapPayload)
   const weeklyLeaders = payload.standings.filter((row) => row.weeklyPoints === bestWeekly);
   const leaderNames = joinNames(weeklyLeaders.map((row) => row.poolTeamName ?? row.ownerName));
   const opening = bestWeekly > 0
-    ? `${leaderNames} ${weeklyLeaders.length === 1 ? "set" : "shared"} the Week ${payload.league.week} pace at ${signed(bestWeekly)}. Every total below comes directly from the certified scoring ledger.`
-    : `Week ${payload.league.week} produced no positive official scoring movement. Every total below comes directly from the certified scoring ledger.`;
+    ? `${leaderNames} ${weeklyLeaders.length === 1 ? "set" : "shared"} the Week ${payload.league.week} pace at ${signed(bestWeekly)}.`
+    : `Week ${payload.league.week} kept the scoring tight, with no one finishing above zero.`;
   const stories = payload.facts.slice(0, 4).map((fact) => ({ factId: fact.id, reaction: reactionFor(fact) }));
-  const next = payload.nextWeek === null ? "The completed standings are below." : `Week ${payload.nextWeek} is next.`;
-  return { subjectHook: `Week ${payload.league.week} official results`, opening, stories, closing: `${next} Lineup and Captain decisions remain part of the authoritative weekly record.` };
+  const closing = payload.nextWeek === null ? "That's the table after the completed slate." : `Week ${payload.nextWeek} is next. Set the lineup and Captain before kickoff.`;
+  return { subjectHook: "Recap", opening, stories, closing };
 }

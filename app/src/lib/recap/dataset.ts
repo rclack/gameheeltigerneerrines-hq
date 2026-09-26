@@ -23,6 +23,46 @@ export interface RecapPickInput {
 
 function signed(value: number) { return `${value > 0 ? "+" : ""}${value}`; }
 
+interface GameContribution {
+  id: string;
+  eventIds: string[];
+  memberId: string | null;
+  ownerName: string;
+  teamName: string;
+  opponentName: string | null;
+  opponentPregameRank: number | null;
+  finalScore: string | null;
+  result: "win" | "loss" | null;
+  lineupStatus: RecapEvent["lineupStatus"];
+  countsForStandings: boolean;
+  captainApplied: boolean;
+  scoringMultiplier: 1 | 2;
+  basePoints: number;
+  points: number;
+  scoringReasons: string[];
+}
+
+function scoringSource(reasons: string[], result: GameContribution["result"]) {
+  const distinct = [...new Set(reasons)];
+  const hasWin = distinct.includes("Win");
+  const hasLoss = distinct.includes("Loss");
+  const rankedBonuses = distinct.filter((reason) => reason.startsWith("Win over "));
+  if (hasWin && rankedBonuses.length === distinct.length - 1) return `the win and ranked bonus${rankedBonuses.length === 1 ? "" : "es"}`;
+  if (hasWin && distinct.includes("G5 win over Power")) return "the win and G5-over-Power bonus";
+  if (hasLoss && distinct.includes("Power loss to G5")) return "the loss and Power-to-G5 penalty";
+  if (distinct.length === 1) return `the ${distinct[0].toLocaleLowerCase("en-US")}`;
+  if (result) return `the ${result} and ${distinct.length - 1} additional scoring component${distinct.length === 2 ? "" : "s"}`;
+  return `${distinct.length} scoring components`;
+}
+
+function contributionText(contribution: GameContribution) {
+  const opponent = contribution.opponentName ? ` against ${contribution.opponentPregameRank ? `#${contribution.opponentPregameRank} ` : ""}${contribution.opponentName}` : "";
+  const result = contribution.result && contribution.finalScore ? ` in a ${contribution.finalScore} ${contribution.result}` : "";
+  const source = scoringSource(contribution.scoringReasons, contribution.result);
+  const base = `${contribution.ownerName}'s ${contribution.teamName} earned ${signed(contribution.basePoints)} from ${source}${opponent}${result}`;
+  return contribution.captainApplied ? `${base}; Captain doubled it to ${signed(contribution.points)}.` : `${base}.`;
+}
+
 function uniqueExtreme<T>(items: T[], value: (item: T) => number, direction: "max" | "min", eligible: (value: number) => boolean) {
   const sorted = [...items].sort((left, right) => direction === "max" ? value(right) - value(left) : value(left) - value(right));
   const first = sorted[0];
@@ -82,6 +122,8 @@ export function buildVerifiedRecapPayload(input: {
     const ranking = opponentTeamId ? game?.rankings.find((item) => item.team_id === opponentTeamId) : null;
     return [{
       id: event.id,
+      teamId: event.team_id,
+      sourceIdentifier: event.source_identifier ?? null,
       ownerName: member.ownerName,
       teamName: team.school_name,
       opponentName: opponent?.displayName ?? null,
@@ -103,26 +145,44 @@ export function buildVerifiedRecapPayload(input: {
   const biggestMover = uniqueExtreme(standings, (row) => row.movement ?? 0, "max", (value) => value > 0);
   if (biggestMover) facts.push({ id: `mover:${biggestMover.memberId}`, label: "Biggest Mover", text: `${biggestMover.ownerName} climbed ${biggestMover.movement} spot${biggestMover.movement === 1 ? "" : "s"} to #${biggestMover.position} after a ${signed(biggestMover.weeklyPoints)}-point week.`, priority: 100, eventId: null, memberId: biggestMover.memberId });
   const toughest = uniqueExtreme(standings, (row) => row.weeklyPoints, "min", (value) => value < 0);
-  if (toughest) facts.push({ id: `tough:${toughest.memberId}`, label: "Toughest Saturday", text: `${toughest.ownerName} had the league's toughest week at ${signed(toughest.weeklyPoints)} points and now sits at #${toughest.position} with ${toughest.totalPoints} total.`, priority: 90, eventId: null, memberId: toughest.memberId });
+  if (toughest) facts.push({ id: `tough:${toughest.memberId}`, label: "Biggest Swing", text: `${toughest.ownerName} finished the week at ${signed(toughest.weeklyPoints)} points and now sits at #${toughest.position} with ${toughest.totalPoints} total.`, priority: 90, eventId: null, memberId: toughest.memberId });
   const topWeek = uniqueExtreme(standings, (row) => row.weeklyPoints, "max", (value) => value > 0);
-  if (topWeek) facts.push({ id: `top:${topWeek.memberId}`, label: "Top Saturday", text: `${topWeek.ownerName} led the league this week with ${signed(topWeek.weeklyPoints)} points and now has ${topWeek.totalPoints} total at #${topWeek.position}.`, priority: 95, eventId: null, memberId: topWeek.memberId });
-  const countingEvents = events.filter((event) => event.countsForStandings);
-  const positive = uniqueExtreme(countingEvents, (event) => event.points, "max", (value) => value > 0);
-  const negative = uniqueExtreme(countingEvents, (event) => event.points, "min", (value) => value < 0);
-  for (const [event, priority] of [[positive, 80], [negative, 75]] as const) {
-    if (!event) continue;
-    const opponent = event.opponentName ? ` against ${event.opponentPregameRank ? `#${event.opponentPregameRank} ` : ""}${event.opponentName}` : "";
-    const result = event.result && event.finalScore ? ` in a ${event.finalScore} ${event.result}` : "";
-    const scoring = event.captainApplied ? ` as Captain (${signed(event.basePoints)} × 2 = ${signed(event.points)})` : ` (${signed(event.points)})`;
-    facts.push({ id: `event:${event.id}`, label: "Impact Play", text: `${event.ownerName}'s ${event.teamName} recorded ${event.scoringReason}${scoring}${opponent}${result}.`, priority, eventId: event.id, memberId: ownerByTeam.get(input.events.find((item) => item.id === event.id)?.team_id ?? "") ?? null });
+  if (topWeek) facts.push({ id: `top:${topWeek.memberId}`, label: "Week Leader", text: `${topWeek.ownerName} led the week with ${signed(topWeek.weeklyPoints)} points and now has ${topWeek.totalPoints} total at #${topWeek.position}.`, priority: 95, eventId: null, memberId: topWeek.memberId });
+
+  const grouped = new Map<string, GameContribution>();
+  for (const event of events) {
+    const memberId = ownerByTeam.get(event.teamId) ?? null;
+    const key = [memberId, event.teamId, event.sourceIdentifier ?? event.id, event.countsForStandings, event.lineupStatus, event.captainApplied, event.scoringMultiplier].join(":");
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.eventIds.push(event.id);
+      existing.basePoints += event.basePoints;
+      existing.points += event.points;
+      existing.scoringReasons.push(event.scoringReason);
+      continue;
+    }
+    grouped.set(key, { id: key, eventIds: [event.id], memberId, ownerName: event.ownerName, teamName: event.teamName, opponentName: event.opponentName, opponentPregameRank: event.opponentPregameRank, finalScore: event.finalScore, result: event.result, lineupStatus: event.lineupStatus, countsForStandings: event.countsForStandings, captainApplied: event.captainApplied, scoringMultiplier: event.scoringMultiplier, basePoints: event.basePoints, points: event.points, scoringReasons: [event.scoringReason] });
   }
-  const benchEvent = events
-    .filter((event) => !event.countsForStandings && event.lineupStatus === "bench" && event.points !== 0)
+  const contributions = [...grouped.values()];
+  for (const contribution of contributions) {
+    contribution.eventIds.sort();
+    contribution.scoringReasons.sort();
+  }
+  const counting = contributions.filter((item) => item.countsForStandings);
+  const positive = uniqueExtreme(counting, (item) => item.points, "max", (value) => value > 0);
+  const negative = uniqueExtreme(counting, (item) => item.points, "min", (value) => value < 0);
+  for (const [contribution, priority] of [[positive, 80], [negative, 75]] as const) {
+    if (!contribution) continue;
+    const label = contribution.captainApplied ? "Captain Watch" : "Game Impact";
+    facts.push({ id: `game:${contribution.eventIds.join(":")}`, label, text: contributionText(contribution), priority, eventId: contribution.eventIds[0], eventIds: contribution.eventIds, memberId: contribution.memberId });
+  }
+  const bench = contributions
+    .filter((item) => !item.countsForStandings && item.lineupStatus === "bench" && item.points !== 0)
     .sort((left, right) => Math.abs(right.points) - Math.abs(left.points) || left.id.localeCompare(right.id))[0];
-  if (benchEvent) {
-    const opponent = benchEvent.opponentName ? ` against ${benchEvent.opponentPregameRank ? `#${benchEvent.opponentPregameRank} ` : ""}${benchEvent.opponentName}` : "";
-    const result = benchEvent.result && benchEvent.finalScore ? ` in a ${benchEvent.finalScore} ${benchEvent.result}` : "";
-    facts.push({ id: `bench:${benchEvent.id}`, label: "Bench Watch", text: `${benchEvent.ownerName}'s ${benchEvent.teamName} produced ${signed(benchEvent.points)} potential points${opponent}${result}; as a benched team, 0 counted toward the official standings.`, priority: 65, eventId: benchEvent.id, memberId: ownerByTeam.get(input.events.find((item) => item.id === benchEvent.id)?.team_id ?? "") ?? null });
+  if (bench) {
+    const opponent = bench.opponentName ? ` against ${bench.opponentPregameRank ? `#${bench.opponentPregameRank} ` : ""}${bench.opponentName}` : "";
+    const result = bench.result && bench.finalScore ? ` in a ${bench.finalScore} ${bench.result}` : "";
+    facts.push({ id: `bench:${bench.eventIds.join(":")}`, label: "Bench Pain", text: `${bench.ownerName}'s ${bench.teamName} left ${signed(bench.points)} potential points on the bench${opponent}${result}; 0 counted toward the standings.`, priority: 65, eventId: bench.eventIds[0], eventIds: bench.eventIds, memberId: bench.memberId });
   }
   if (!facts.length) facts.push({ id: `week:${input.week}:quiet`, label: "Week in Review", text: `Week ${input.week} produced no active scoring changes in the league.`, priority: 10, eventId: null, memberId: null });
 

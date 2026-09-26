@@ -11,6 +11,7 @@ import { SUNDAY_RECAP_FALLBACK_MODEL } from "../../src/lib/recap/models.ts";
 import { pendingRecapRecipients } from "../../src/lib/recap/delivery.ts";
 import { runScheduledRecapBatch } from "../../src/lib/recap/cron.ts";
 import { validateRecapNarrative } from "../../src/lib/recap/narrativeValidation.ts";
+import { orderWeeklyResults } from "../../src/lib/recap/weeklyResults.ts";
 import type { GameDetail } from "../../src/services/gameService.ts";
 import type { ScoringEventDetail } from "../../src/services/scoringService.ts";
 import type { League, Team } from "../../src/types/database.ts";
@@ -44,14 +45,14 @@ test("normal week uses only verified snapshots, active scoring, game results, an
   assert.equal(result.standings[0].movement, 2);
   assert.equal(result.events[0].finalScore, "27-24");
   assert.equal(result.events[0].opponentPregameRank, 3);
-  assert.match(result.facts.find((fact) => fact.id === "event:event-1")!.text, /#3 Georgia/);
+  assert.match(result.facts.find((fact) => fact.label === "Game Impact")!.text, /#3 Georgia/);
   assert.equal(result.nextWeek, 5);
 });
 
 test("Captain recap facts use deterministic base, multiplier, and final points", () => {
   const result = payload([], [scoringEvent({ points: 8, base_points: 4, scoring_multiplier: 2, captain_at_scoring: true })]);
   assert.deepEqual({ base: result.events[0].basePoints, multiplier: result.events[0].scoringMultiplier, captain: result.events[0].captainApplied, final: result.events[0].points }, { base: 4, multiplier: 2, captain: true, final: 8 });
-  assert.match(result.facts.find((fact) => fact.id === "event:event-1")!.text, /as Captain \(\+4 × 2 = \+8\)/);
+  assert.match(result.facts.find((fact) => fact.label === "Captain Watch")!.text, /earned \+4[\s\S]*Captain doubled it to \+8/);
 });
 
 test("zero-event weeks produce a factual quiet-week card", () => {
@@ -81,7 +82,7 @@ test("ties do not force unsupported weekly superlatives", () => {
 test("large movers and negative weeks are calculated from frozen snapshots", () => {
   const result = payload([{ standing_position: 1, prior_position: 4, weekly_points: 8 }, { standing_position: 4, prior_position: 1, weekly_points: -6 }], []);
   assert.match(result.facts.find((fact) => fact.label === "Biggest Mover")!.text, /climbed 3 spots/);
-  assert.match(result.facts.find((fact) => fact.label === "Toughest Saturday")!.text, /-6 points/);
+  assert.match(result.facts.find((fact) => fact.label === "Biggest Swing")!.text, /-6 points/);
 });
 
 test("voided/corrected events stay excluded by requiring the active-event input", () => {
@@ -98,8 +99,8 @@ test("bench events remain certified facts but cannot become official impact stor
   ]);
   const bench = result.events.find((event) => event.id === "bench-event");
   assert.deepEqual({ lineup: bench?.lineupStatus, counts: bench?.countsForStandings }, { lineup: "bench", counts: false });
-  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event" && fact.label === "Impact Play"), false);
-  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event" && fact.label === "Bench Watch"), true);
+  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event" && fact.label === "Game Impact"), false);
+  assert.equal(result.facts.some((fact) => fact.eventId === "bench-event" && fact.label === "Bench Pain"), true);
 });
 
 test("recap payload equality is stable across object key order and detects factual changes", () => {
@@ -152,7 +153,7 @@ test("deterministic fallback handles ties and zero-point owners without inventin
   const first = renderDeterministicRecapNarrative(verified);
   const second = renderDeterministicRecapNarrative(verified);
   assert.deepEqual(first, second);
-  assert.match(first.opening, /no positive official scoring movement/i);
+  assert.match(first.opening, /no one finishing above zero/i);
   assert.doesNotMatch(first.opening, /\b(?:led|sole|winner)\b/i);
 });
 
@@ -163,8 +164,8 @@ test("fallback Captain and bench stories use only certified fact-card formatting
   ]);
   const captain = verified.facts.find((fact) => fact.eventId === "event-1");
   const bench = verified.facts.find((fact) => fact.eventId === "bench-event");
-  assert.match(captain?.text ?? "", /Captain \(\+4 × 2 = \+8\)/);
-  assert.match(bench?.text ?? "", /benched team, 0 counted/);
+  assert.match(captain?.text ?? "", /Captain doubled it to \+8/);
+  assert.match(bench?.text ?? "", /0 counted toward the standings/);
   const narrative = renderDeterministicRecapNarrative(verified);
   assert.ok(narrative.stories.every((story) => verified.facts.some((fact) => fact.id === story.factId)));
 });
@@ -172,13 +173,41 @@ test("fallback Captain and bench stories use only certified fact-card formatting
 test("tied bench performances select one stable deterministic non-counting example", () => {
   const verified = payload([], [
     scoringEvent(),
-    scoringEvent({ id: "bench-z", points: 3, counts_for_standings: false, lineup_status_at_scoring: "bench" }),
-    scoringEvent({ id: "bench-a", points: -3, counts_for_standings: false, lineup_status_at_scoring: "bench" }),
+    scoringEvent({ id: "bench-z", source_identifier: "game-z", points: 3, counts_for_standings: false, lineup_status_at_scoring: "bench" }),
+    scoringEvent({ id: "bench-a", source_identifier: "game-a", points: -3, counts_for_standings: false, lineup_status_at_scoring: "bench" }),
   ]);
-  const benchFacts = verified.facts.filter((fact) => fact.label === "Bench Watch");
+  const benchFacts = verified.facts.filter((fact) => fact.label === "Bench Pain");
   assert.equal(benchFacts.length, 1);
   assert.equal(benchFacts[0].eventId, "bench-a");
-  assert.match(benchFacts[0].text, /0 counted toward the official standings/);
+  assert.match(benchFacts[0].text, /0 counted toward the standings/);
+});
+
+test("weekly results order by weekly points independently from cumulative rank", () => {
+  const verified = payload([
+    { standing_position: 1, total_points: 20, weekly_points: 2 },
+    { standing_position: 2, total_points: 12, weekly_points: 5 },
+  ]);
+  assert.deepEqual(verified.standings.map((row) => row.ownerName), ["Randy", "Carson"]);
+  assert.deepEqual(orderWeeklyResults(verified.standings).map((row) => row.ownerName), ["Carson", "Randy"]);
+});
+
+test("game contribution combines cumulative scoring rows before Captain multiplication", () => {
+  const verified = payload([], [
+    scoringEvent({ id: "win", points: 2, base_points: 1, scoring_multiplier: 2, captain_at_scoring: true, rule: { display_name: "Win" } as ScoringEventDetail["rule"] }),
+    scoringEvent({ id: "ranked", points: 2, base_points: 1, scoring_multiplier: 2, captain_at_scoring: true, rule: { display_name: "Win over ranked team" } as ScoringEventDetail["rule"] }),
+    scoringEvent({ id: "top-15", points: 4, base_points: 2, scoring_multiplier: 2, captain_at_scoring: true, rule: { display_name: "Win over Top 15 team" } as ScoringEventDetail["rule"] }),
+  ]);
+  const fact = verified.facts.find((item) => item.label === "Captain Watch")!;
+  assert.deepEqual(fact.eventIds, ["ranked", "top-15", "win"]);
+  assert.match(fact.text, /earned \+4 from the win and ranked bonuses/);
+  assert.match(fact.text, /Captain doubled it to \+8/);
+  assert.doesNotMatch(fact.text, /recorded Win over Top 15 team/);
+});
+
+test("player-facing fallback contains no QA or database terminology", () => {
+  const narrative = renderDeterministicRecapNarrative(payload());
+  const authored = [narrative.opening, narrative.closing, ...narrative.stories.map((story) => story.reaction)].join(" ");
+  assert.doesNotMatch(authored, /certified|verified|ledger|database/i);
 });
 
 test("fallback orchestration keeps unsent records reusable and sent recaps immutable", () => {

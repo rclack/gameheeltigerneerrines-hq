@@ -13,6 +13,8 @@ export interface RecapStanding {
 
 export interface RecapEvent {
   id: string;
+  teamId: string;
+  sourceIdentifier: string | null;
   ownerName: string;
   teamName: string;
   opponentName: string | null;
@@ -31,10 +33,11 @@ export interface RecapEvent {
 
 export interface RecapFact {
   id: string;
-  label: "Biggest Mover" | "Toughest Saturday" | "Top Saturday" | "Impact Play" | "Bench Watch" | "Week in Review";
+  label: "Biggest Mover" | "Biggest Swing" | "Week Leader" | "Captain Watch" | "Game Impact" | "Bench Pain" | "Week in Review";
   text: string;
   priority: number;
   eventId: string | null;
+  eventIds?: string[];
   memberId: string | null;
 }
 
