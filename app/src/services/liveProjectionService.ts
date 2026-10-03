@@ -76,7 +76,7 @@ export async function getLiveProjection(
     teamIds.length ? supabase.from("teams").select("id,school_name,conference").in("id", teamIds) : Promise.resolve({ data: [], error: null }),
     externalIds.length ? supabase.from("external_opponents").select("id,display_name").in("id", externalIds) : Promise.resolve({ data: [], error: null }),
     lineupIds.length ? supabase.from("weekly_lineup_entries").select("id,weekly_lineup_id,team_id,game_id,status,is_captain").in("weekly_lineup_id", lineupIds) : Promise.resolve({ data: [], error: null }),
-    ...chunks(providerIds).map((ids) => supabase.from("live_scoreboard_games").select("provider,provider_game_id,status,home_score,away_score,fetched_at").eq("provider", "cfbd").in("provider_game_id", ids)),
+    ...chunks(providerIds).map((ids) => supabase.from("live_scoreboard_games").select("provider,provider_game_id,status,home_score,away_score,period,state_fingerprint,fetched_at").eq("provider", "cfbd").in("provider_game_id", ids)),
   ]);
   const teams = requireData("teams", teamsResult);
   const externalOpponents = requireData("external opponents", externalResult);
@@ -102,7 +102,7 @@ export async function getLiveProjection(
       status: game.status, scoringFingerprint: game.scoring_fingerprint, homeTeamId: game.home_team_id, awayTeamId: game.away_team_id,
       homeExternalOpponentId: game.home_external_opponent_id, awayExternalOpponentId: game.away_external_opponent_id, homeScore: game.home_score, awayScore: game.away_score })),
     liveGames: liveGames.map((game) => ({ provider: game.provider, providerGameId: game.provider_game_id, status: game.status,
-      homeScore: game.home_score, awayScore: game.away_score, fetchedAt: game.fetched_at })),
+      homeScore: game.home_score, awayScore: game.away_score, period: game.period, stateFingerprint: game.state_fingerprint, fetchedAt: game.fetched_at })),
     rankings: rankings.flatMap((row) => row.game_id ? [{ gameId: row.game_id, teamId: row.team_id, rank: row.rank, capturedAt: row.captured_at }] : []),
     lineups: lineups.map((lineup) => ({ id: lineup.id, memberId: lineup.league_member_id, season: lineup.season, week: lineup.week })),
     entries: entries.map((entry) => ({ id: entry.id, lineupId: entry.weekly_lineup_id, teamId: entry.team_id, gameId: entry.game_id,

@@ -5,7 +5,7 @@ import SaturdayWatchlist, { type SaturdayWatchlistGame } from "@/components/leag
 import type { LiveProjectionResult, ProjectedGameFact, ProjectionOwnerResult } from "@/lib/projection/live-projection";
 
 function fact(overrides: Partial<ProjectedGameFact> = {}): ProjectedGameFact {
-  return { gameId: "captain-positive", providerGameId: "provider-1", teamId: "ole-miss", teamName: "Ole Miss", opponentId: "lsu", opponentName: "LSU", state: "live",
+  return { gameId: "captain-positive", providerGameId: "provider-1", week: 5, opponentMemberId: null, teamPregameRank: null, opponentPregameRank: null, teamRankingContextResolved: true, opponentRankingContextResolved: true, teamClassification: "POWER", opponentClassification: "POWER", period: 3, sourceFreshness: "fresh", sourceFetchedAt: "2026-10-03T17:59:00Z", canonicalStateFingerprint: "fixture", teamId: "ole-miss", teamName: "Ole Miss", opponentId: "lsu", opponentName: "LSU", state: "live",
     score: { team: 24, opponent: 17 }, lineupEntryId: "entry", lineupStatus: "starter", counts: true, captainApplied: true, multiplier: 2,
     baseProjectedPoints: 4, projectedPoints: 8, components: [
       { ruleId: "win", code: "WIN", displayName: "Win", basePoints: 1, multiplier: 2, points: 2 },

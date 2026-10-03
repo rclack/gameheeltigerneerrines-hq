@@ -1,4 +1,6 @@
 import { LIVE_PRESENTATION_STALE_AFTER_MS } from "../cfbd/livePresentation.ts";
+import { evaluateChaos } from "../chaos/evaluator.ts";
+import type { ChaosEvaluationResult } from "../chaos/types.ts";
 import { evaluateProjectedGameResult, type ProjectableRule, type ProjectedRuleComponent, type TeamClassification } from "./game-result.ts";
 
 export type ProjectionGameState = "scheduled" | "delayed" | "suspended" | "live" | "tied" | "stale" | "malformed" | "canceled" | "final_pending" | "official";
@@ -16,14 +18,19 @@ export interface ProjectionGameInput {
   status: string; scoringFingerprint: string | null; homeTeamId: string | null; awayTeamId: string | null;
   homeExternalOpponentId: string | null; awayExternalOpponentId: string | null; homeScore: number | null; awayScore: number | null;
 }
-export interface ProjectionLiveInput { provider: string; providerGameId: string; status: "scheduled" | "in_progress" | "completed"; homeScore: number | null; awayScore: number | null; fetchedAt: string }
+export interface ProjectionLiveInput { provider: string; providerGameId: string; status: "scheduled" | "in_progress" | "completed"; homeScore: number | null; awayScore: number | null; period?: number | null; stateFingerprint?: string | null; fetchedAt: string }
 export interface ProjectionExternalOpponentInput { id: string; name: string }
 
 export interface ProjectedGameFact {
-  gameId: string; providerGameId: string | null; teamId: string; teamName: string; opponentId: string | null; opponentName: string;
+  gameId: string; providerGameId: string | null; week: number; teamId: string; teamName: string; opponentId: string | null; opponentName: string;
+  opponentMemberId: string | null; teamPregameRank: number | null; opponentPregameRank: number | null;
+  teamRankingContextResolved: boolean; opponentRankingContextResolved: boolean;
+  teamClassification: TeamClassification; opponentClassification: TeamClassification;
   state: ProjectionGameState; score: { team: number; opponent: number }; lineupEntryId: string | null;
   lineupStatus: ProjectionLineupStatus; counts: boolean; captainApplied: boolean; multiplier: 1 | 2;
   baseProjectedPoints: number; projectedPoints: number; components: ProjectedRuleComponent[];
+  period: number | null; sourceFreshness: "fresh" | "stale" | "unavailable"; sourceFetchedAt: string | null;
+  canonicalStateFingerprint: string | null;
 }
 export interface ProjectionOwnerResult {
   memberId: string; displayName: string; officialPoints: number; liveDelta: number; finalPendingDelta: number; projectedTotal: number;
@@ -34,6 +41,7 @@ export interface LiveProjectionResult {
   leagueId: string; season: string; competitionWeek: number; generatedAt: string; liveDataFetchedAt: string | null;
   freshnessState: "fresh" | "stale" | "unavailable"; officialAsOf: string | null; owners: ProjectionOwnerResult[];
   context: { tiedGames: ProjectionContextItem[]; staleGames: ProjectionContextItem[]; notStartedGames: ProjectionContextItem[]; integrityWarnings: string[] };
+  chaos?: ChaosEvaluationResult;
 }
 export interface BuildLiveProjectionInput {
   leagueId: string; season: string; nowMs: number; members: ProjectionMemberInput[]; picks: ProjectionPickInput[];
@@ -121,8 +129,10 @@ export function buildLiveProjection(input: BuildLiveProjectionInput): LiveProjec
     warnings.push(...evaluation.warnings.map((warning) => `Game ${game.id}: ${warning}`));
 
     for (const side of [
-      { teamId: game.homeTeamId, opponentId: game.awayTeamId, externalOpponentId: game.awayExternalOpponentId, teamScore: homeScore, opponentScore: awayScore, components: evaluation.home },
-      { teamId: game.awayTeamId, opponentId: game.homeTeamId, externalOpponentId: game.homeExternalOpponentId, teamScore: awayScore, opponentScore: homeScore, components: evaluation.away },
+      { teamId: game.homeTeamId, opponentId: game.awayTeamId, externalOpponentId: game.awayExternalOpponentId, teamScore: homeScore, opponentScore: awayScore,
+        team: home, opponent: away, teamRank: homeRank, opponentRank: awayRank, components: evaluation.home },
+      { teamId: game.awayTeamId, opponentId: game.homeTeamId, externalOpponentId: game.homeExternalOpponentId, teamScore: awayScore, opponentScore: homeScore,
+        team: away, opponent: home, teamRank: awayRank, opponentRank: homeRank, components: evaluation.away },
     ]) {
       if (!side.teamId || !pickByTeam.has(side.teamId)) continue;
       const pick = pickByTeam.get(side.teamId)!;
@@ -138,10 +148,16 @@ export function buildLiveProjection(input: BuildLiveProjectionInput): LiveProjec
       const baseProjectedPoints = components.reduce((sum, item) => sum + item.basePoints, 0);
       const projectedPoints = components.reduce((sum, item) => sum + item.points, 0);
       const fact: ProjectedGameFact = {
-        gameId: game.id, providerGameId, teamId: side.teamId, teamName: teamById.get(side.teamId)?.name ?? "Team",
+        gameId: game.id, providerGameId, week: game.week, teamId: side.teamId, teamName: teamById.get(side.teamId)?.name ?? "Team",
         opponentId: side.opponentId, opponentName: side.opponentId ? teamById.get(side.opponentId)?.name ?? "Opponent" : externalById.get(side.externalOpponentId ?? "") ?? "External opponent",
+        opponentMemberId: side.opponentId ? pickByTeam.get(side.opponentId)?.memberId ?? null : null,
+        teamPregameRank: side.teamRank.rank, opponentPregameRank: side.opponentRank.rank,
+        teamRankingContextResolved: side.teamRank.resolved, opponentRankingContextResolved: side.opponentRank.resolved,
+        teamClassification: side.team?.classification ?? null, opponentClassification: side.opponent?.classification ?? null,
         state, score: { team: side.teamScore, opponent: side.opponentScore }, lineupEntryId: entry?.id ?? null, lineupStatus,
         counts, captainApplied: multiplier === 2, multiplier, baseProjectedPoints, projectedPoints, components,
+        period: canonical?.period ?? null, sourceFreshness: "fresh", sourceFetchedAt: canonical?.fetchedAt ?? null,
+        canonicalStateFingerprint: canonical?.stateFingerprint ?? null,
       };
       if (counts) (state === "final_pending" ? facts.get(pick.memberId)!.pending : facts.get(pick.memberId)!.live).push(fact);
       else facts.get(pick.memberId)!.bench.push(fact);
@@ -165,10 +181,12 @@ export function buildLiveProjection(input: BuildLiveProjectionInput): LiveProjec
       contributingGames: [...ownerFacts.live, ...ownerFacts.pending], benchPotential: ownerFacts.bench };
   }).sort((a, b) => a.projectedRank - b.projectedRank || b.projectedTotal - a.projectedTotal || a.displayName.localeCompare(b.displayName));
   const latestMs = latestLiveAt ? new Date(latestLiveAt).getTime() : NaN;
-  return {
+  const result: LiveProjectionResult = {
     leagueId: input.leagueId, season: input.season, competitionWeek, generatedAt: new Date(input.nowMs).toISOString(), liveDataFetchedAt: latestLiveAt,
     freshnessState: !latestLiveAt ? "unavailable" : input.nowMs - latestMs <= LIVE_PRESENTATION_STALE_AFTER_MS ? "fresh" : "stale",
     officialAsOf: input.officialEvents.map((event) => event.createdAt).sort().at(-1) ?? null, owners,
     context: { tiedGames, staleGames, notStartedGames, integrityWarnings: [...new Set(warnings)] },
   };
+  result.chaos = evaluateChaos(result);
+  return result;
 }

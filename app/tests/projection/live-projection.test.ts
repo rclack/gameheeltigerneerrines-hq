@@ -91,6 +91,8 @@ test("historical TCU–UNC transitions are reversible and GHTNR-style no-ownersh
   assert.equal(tied.context.tiedGames.length, 1);
   const trailing = buildLiveProjection(fixture());
   assert.equal(trailing.owners.find((owner) => owner.memberId === "randy")?.liveDelta, -1);
+  assert.equal(trailing.chaos?.version, 1);
+  assert.ok(trailing.chaos?.candidates.some((event) => event.type === "MAJOR_SCORING_SWING" && event.memberId === "randy"));
 
   const pending = buildLiveProjection(fixture({
     games: [{ ...fixture().games[0]!, status: "final", homeScore: 10, awayScore: 15 }], liveGames: [], nowMs: Date.parse("2026-08-29T19:36:00Z"),
@@ -102,6 +104,7 @@ test("historical TCU–UNC transitions are reversible and GHTNR-style no-ownersh
   }));
   const randy = official.owners.find((owner) => owner.memberId === "randy")!;
   assert.deepEqual([randy.officialPoints, randy.liveDelta, randy.finalPendingDelta, randy.projectedTotal], [-1, 0, 0, -1]);
+  assert.equal(official.chaos?.candidates.length, 0);
 
   const unrelated = buildLiveProjection(fixture({ picks: [{ memberId: "alex", teamId: "usc" }], entries: [] }));
   assert.ok(unrelated.owners.every((owner) => owner.liveDelta === 0));

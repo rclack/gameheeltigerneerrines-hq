@@ -5,7 +5,7 @@ import type { LiveProjectionResult, ProjectedGameFact, ProjectionOwnerResult } f
 
 function game(overrides: Partial<ProjectedGameFact> = {}): ProjectedGameFact {
   return {
-    gameId: "game-1", providerGameId: "401856766", teamId: "ole-miss", teamName: "Ole Miss", opponentId: "lsu", opponentName: "LSU",
+    gameId: "game-1", providerGameId: "401856766", week: 5, opponentMemberId: null, teamPregameRank: null, opponentPregameRank: null, teamRankingContextResolved: true, opponentRankingContextResolved: true, teamClassification: "POWER", opponentClassification: "POWER", period: 3, sourceFreshness: "fresh", sourceFetchedAt: "2026-10-03T17:59:00Z", canonicalStateFingerprint: "fixture", teamId: "ole-miss", teamName: "Ole Miss", opponentId: "lsu", opponentName: "LSU",
     state: "live", score: { team: 24, opponent: 17 }, lineupEntryId: "entry-1", lineupStatus: "starter", counts: true,
     captainApplied: true, multiplier: 2, baseProjectedPoints: 4, projectedPoints: 8,
     components: [

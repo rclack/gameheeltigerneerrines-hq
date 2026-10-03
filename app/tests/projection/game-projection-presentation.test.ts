@@ -6,7 +6,7 @@ import type { LiveProjectionResult, ProjectedGameFact, ProjectionOwnerResult } f
 import { projectionFactsForGame } from "../../src/lib/projection/presentation.ts";
 
 function fact(overrides: Partial<ProjectedGameFact> = {}): ProjectedGameFact {
-  return { gameId: "game", providerGameId: "provider", teamId: "team", teamName: "Team", opponentId: "opponent", opponentName: "Opponent", state: "live", score: { team: 21, opponent: 14 }, lineupEntryId: "entry", lineupStatus: "starter", counts: true, captainApplied: false, multiplier: 1, baseProjectedPoints: 1, projectedPoints: 1, components: [], ...overrides };
+  return { gameId: "game", providerGameId: "provider", week: 5, opponentMemberId: null, teamPregameRank: null, opponentPregameRank: null, teamRankingContextResolved: true, opponentRankingContextResolved: true, teamClassification: "POWER", opponentClassification: "POWER", period: 3, sourceFreshness: "fresh", sourceFetchedAt: "2026-10-03T17:59:00Z", canonicalStateFingerprint: "fixture", teamId: "team", teamName: "Team", opponentId: "opponent", opponentName: "Opponent", state: "live", score: { team: 21, opponent: 14 }, lineupEntryId: "entry", lineupStatus: "starter", counts: true, captainApplied: false, multiplier: 1, baseProjectedPoints: 1, projectedPoints: 1, components: [], ...overrides };
 }
 
 function owner(overrides: Partial<ProjectionOwnerResult> = {}): ProjectionOwnerResult {
