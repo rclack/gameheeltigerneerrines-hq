@@ -130,6 +130,9 @@ test("stale, malformed, scheduled and final-current states contribute zero", () 
   assert.equal(malformed.context.staleGames[0]?.state, "malformed");
   const scheduled = buildLiveProjection(fixture({ liveGames: [{ ...fixture().liveGames[0]!, status: "scheduled", homeScore: 0, awayScore: 0 }] }));
   assert.equal(scheduled.context.notStartedGames.length, 1);
+  const delayed = buildLiveProjection(fixture({ games: [{ ...fixture().games[0]!, status: "postponed" }], liveGames: [] }));
+  assert.equal(delayed.context.notStartedGames[0]?.state, "delayed");
+  assert.ok(delayed.owners.every((owner) => owner.liveDelta === 0));
   const current = buildLiveProjection(fixture({ games: [{ ...fixture().games[0]!, status: "final", scoringFingerprint: "current", homeScore: 10, awayScore: 15 }] }));
   assert.ok(current.owners.every((owner) => owner.liveDelta === 0 && owner.finalPendingDelta === 0));
 });

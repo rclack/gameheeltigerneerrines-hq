@@ -1,7 +1,7 @@
 import { LIVE_PRESENTATION_STALE_AFTER_MS } from "../cfbd/livePresentation.ts";
 import { evaluateProjectedGameResult, type ProjectableRule, type ProjectedRuleComponent, type TeamClassification } from "./game-result.ts";
 
-export type ProjectionGameState = "scheduled" | "live" | "tied" | "stale" | "malformed" | "canceled" | "final_pending" | "official";
+export type ProjectionGameState = "scheduled" | "delayed" | "suspended" | "live" | "tied" | "stale" | "malformed" | "canceled" | "final_pending" | "official";
 export type ProjectionLineupStatus = "starter" | "bench" | "no_game" | "legacy" | "missing";
 
 export interface ProjectionMemberInput { id: string; displayName: string }
@@ -88,6 +88,8 @@ export function buildLiveProjection(input: BuildLiveProjectionInput): LiveProjec
     const officialCurrent = game.status === "final" && Boolean(game.scoringFingerprint);
     if (officialCurrent) state = "official";
     else if (game.status === "canceled") state = "canceled";
+    else if (game.status === "postponed" || game.status === "delayed") state = "delayed";
+    else if (game.status === "suspended") state = "suspended";
     else if (game.status === "final") {
       if (game.homeScore !== null && game.awayScore !== null && game.homeScore >= 0 && game.awayScore >= 0 && game.homeScore !== game.awayScore) {
         state = "final_pending"; homeScore = game.homeScore; awayScore = game.awayScore;
@@ -104,7 +106,7 @@ export function buildLiveProjection(input: BuildLiveProjectionInput): LiveProjec
     const contextItem = { gameId: game.id, providerGameId, state, label: state === "tied" ? "TIED — unresolved" : state } satisfies ProjectionContextItem;
     if (state === "tied") tiedGames.push(contextItem);
     if (state === "stale" || state === "malformed") staleGames.push(contextItem);
-    if (state === "scheduled") notStartedGames.push(contextItem);
+    if (state === "scheduled" || state === "delayed" || state === "suspended") notStartedGames.push(contextItem);
     if (homeScore === null || awayScore === null || (state !== "live" && state !== "final_pending")) continue;
 
     const home = game.homeTeamId ? teamById.get(game.homeTeamId) : undefined;
