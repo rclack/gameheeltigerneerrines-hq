@@ -169,4 +169,8 @@ test("authenticated route is one-league, no-store, RLS-only, and contains no mut
   assert.doesNotMatch(service, /\.(?:insert|update|delete|upsert)\(/);
   for (const forbidden of ["process_cfb_game_scoring", "weekly_captain_changes", "sunday_recap_deliveries"]) assert.doesNotMatch(service, new RegExp(forbidden));
   assert.doesNotMatch(service, /(?:insert|update|delete|upsert)[^\n]+scoring_fingerprint/i);
+  assert.match(service, /const relevantGames = games\.filter/);
+  assert.match(service, /chunks\(relevantGameIds\)/);
+  assert.match(service, /chunks\(providerIds\)/);
+  assert.match(service, /range\(from, from \+ 999\)/);
 });
