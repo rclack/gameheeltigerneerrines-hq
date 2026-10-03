@@ -38,10 +38,19 @@ test("presentation uses certified totals, ranks, tie-safe movement, and signed v
   const up = owner({ officialRank: 4, projectedRank: 2, rankMovement: 2, liveDelta: 8, projectedTotal: 18 });
   const down = owner({ officialRank: 1, projectedRank: 3, rankMovement: -2, liveDelta: -2, projectedTotal: 8 });
   const tied = owner({ officialRank: 3, projectedRank: 3, rankMovement: 0 });
+  const sharedProjectedRank = [
+    owner({ memberId: "one", officialRank: 2, projectedRank: 1, rankMovement: 1 }),
+    owner({ memberId: "two", officialRank: 3, projectedRank: 1, rankMovement: 2 }),
+  ];
   assert.equal(provisionalPoints(up), 8);
   assert.equal(projectedMovementLabel(up), "Moves up from #4 to #2 if scores hold");
   assert.equal(projectedMovementLabel(down), "Moves down from #1 to #3 if scores hold");
   assert.equal(projectedMovementLabel(tied), "Stays #3 if scores hold");
+  assert.deepEqual(sharedProjectedRank.map((item) => item.projectedRank), [1, 1]);
+  assert.deepEqual(sharedProjectedRank.map(projectedMovementLabel), [
+    "Moves up from #2 to #1 if scores hold",
+    "Moves up from #3 to #1 if scores hold",
+  ]);
   assert.deepEqual([signedPoints(8), signedPoints(-2), signedPoints(0)], ["+8", "−2", "0"]);
 });
 
