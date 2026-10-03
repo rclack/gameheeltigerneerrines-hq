@@ -2,6 +2,25 @@ import type { LiveProjectionResult, ProjectionOwnerResult, ProjectedGameFact } f
 
 export const LIVE_PROJECTION_REFRESH_MS = 3 * 60_000;
 
+export interface GameProjectionOwnerFact {
+  owner: ProjectionOwnerResult;
+  game: ProjectedGameFact;
+  bench: boolean;
+}
+
+export function projectionFactsForGame(projection: LiveProjectionResult | null, gameId: string) {
+  if (!projection) return { owners: [] as GameProjectionOwnerFact[], tied: false, stale: false };
+  const owners = projection.owners.flatMap((owner) => [
+    ...owner.contributingGames.filter((game) => game.gameId === gameId).map((game) => ({ owner, game, bench: false })),
+    ...owner.benchPotential.filter((game) => game.gameId === gameId).map((game) => ({ owner, game, bench: true })),
+  ]);
+  return {
+    owners,
+    tied: projection.context.tiedGames.some((game) => game.gameId === gameId),
+    stale: projection.context.staleGames.some((game) => game.gameId === gameId),
+  };
+}
+
 export function signedPoints(value: number) {
   if (value > 0) return `+${value}`;
   if (value < 0) return `−${Math.abs(value)}`;

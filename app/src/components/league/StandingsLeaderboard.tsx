@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import TeamLogo from "@/components/team/TeamLogo";
+import { useLiveProjection } from "@/components/projection/useLiveProjection";
 import { favoriteTeamTheme } from "@/lib/league/favorite-team-theme";
 import type { LiveProjectionResult, ProjectedGameFact, ProjectionOwnerResult } from "@/lib/projection/live-projection";
 import {
   hasMeaningfulProjectionContext,
-  LIVE_PROJECTION_REFRESH_MS,
   projectedGameSummary,
   projectedMovementLabel,
   projectionFreshnessLabel,
@@ -108,33 +108,7 @@ export default function StandingsLeaderboard({
   fixtureProjection?: LiveProjectionResult | null;
   fixtureExpandDetails?: boolean;
 }) {
-  const [projection, setProjection] = useState<LiveProjectionResult | null>(fixtureProjection);
-  const [refreshFailed, setRefreshFailed] = useState(false);
-  const [clock, setClock] = useState(() => Date.now());
-
-  const refresh = useCallback(async () => {
-    if (fixtureProjection) return;
-    try {
-      const response = await fetch(`/api/leagues/${leagueId}/live-projection`, { cache: "no-store", credentials: "same-origin" });
-      if (!response.ok) throw new Error(`projection_read_${response.status}`);
-      setProjection(await response.json() as LiveProjectionResult);
-      setRefreshFailed(false);
-      setClock(Date.now());
-    } catch (error) {
-      console.error("[live-projection-ui]", error instanceof Error ? error.message : "read_failed");
-      setProjection(null);
-      setRefreshFailed(true);
-    }
-  }, [fixtureProjection, leagueId]);
-
-  useEffect(() => {
-    if (fixtureProjection) return;
-    const initial = window.setTimeout(() => void refresh(), 0);
-    const interval = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, LIVE_PROJECTION_REFRESH_MS);
-    const onVisibility = () => { if (document.visibilityState === "visible") void refresh(); };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => { window.clearTimeout(initial); window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
-  }, [fixtureProjection, refresh]);
+  const { projection, refreshFailed, clock } = useLiveProjection(leagueId, fixtureProjection);
 
   const projectionByOwner = useMemo(() => new Map(projection?.owners.map((owner) => [owner.memberId, owner]) ?? []), [projection]);
   const projectionActive = projection ? hasMeaningfulProjectionContext(projection) : false;

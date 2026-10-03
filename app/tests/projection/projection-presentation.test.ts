@@ -65,16 +65,17 @@ test("freshness and game copy remain player-facing", () => {
 
 test("web consumer is localized, accessible, read-only, and avoids duplicate provider polling", () => {
   const component = readFileSync(new URL("../../src/components/league/StandingsLeaderboard.tsx", import.meta.url), "utf8");
+  const hook = readFileSync(new URL("../../src/components/projection/useLiveProjection.ts", import.meta.url), "utf8");
   assert.equal(LIVE_PROJECTION_REFRESH_MS, 180_000);
-  assert.match(component, /fetch\(`\/api\/leagues\/\$\{leagueId\}\/live-projection`/);
-  assert.match(component, /credentials: "same-origin"/);
-  assert.match(component, /document\.visibilityState === "visible"/);
+  assert.match(hook, /fetch\(`\/api\/leagues\/\$\{leagueId\}\/live-projection`/);
+  assert.match(hook, /credentials: "same-origin"/);
+  assert.match(hook, /document\.visibilityState === "visible"/);
   assert.match(component, /Live projection is temporarily unavailable\. Official standings remain current\./);
   assert.match(component, /<details/);
   assert.match(component, /min-h-11/);
   assert.match(component, /CAPTAIN ×2/);
   assert.match(component, /Does not count/);
-  assert.doesNotMatch(component, /CFBD|service.role|SUPABASE_SERVICE|\.rpc\(|\.insert\(|\.update\(|\.delete\(/i);
+  assert.doesNotMatch(component + hook, /CFBD|service.role|SUPABASE_SERVICE|\.rpc\(|\.insert\(|\.update\(|\.delete\(/i);
   for (const forbidden of ["projection engine", "canonical state", "Scoring Current", "live delta", "provider freshness", "scoring fingerprint"]) assert.doesNotMatch(component, new RegExp(forbidden, "i"));
 });
 

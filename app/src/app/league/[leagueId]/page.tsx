@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import FavoriteTeamSelector from "@/components/league/FavoriteTeamSelector";
+import SaturdayWatchlist, { type SaturdayWatchlistGame } from "@/components/league/SaturdayWatchlist";
 import TeamNameForm from "@/components/league/TeamNameForm";
 import WeeklyLineup from "@/components/league/WeeklyLineup";
 import TeamLogo from "@/components/team/TeamLogo";
@@ -41,13 +42,6 @@ function gameDateLabel(game: GameDetail) {
     day: "numeric",
     ...(game.start_at ? { hour: "numeric" as const, minute: "2-digit" as const } : {}),
   }).format(value);
-}
-
-function gameStatusLabel(status: string) {
-  if (status === "in_progress") return "Live";
-  if (status === "completed" || status === "final") return "Final";
-  if (status === "postponed") return "Postponed";
-  return "Upcoming";
 }
 
 export default async function LeaguePage({ params, searchParams }: { params: Promise<{ leagueId: string }>; searchParams: Promise<{ lineupWeek?: string }> }) {
@@ -93,6 +87,37 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
   const renderedAt = new Date();
   const relevantGames = selectRelevantOwnerGames(games, myTeamIds, renderedAt);
   const livePresentationData = await getLivePresentationData(supabase, relevantGames);
+  const watchlistGames: SaturdayWatchlistGame[] = relevantGames.map((game) => {
+    const providerId = game.external_provider === "cfbd" ? game.external_id : null;
+    const live = providerId ? livePresentation(
+      livePresentationData.games.get(providerId) ?? null,
+      livePresentationData.snapshots.get(providerId) ?? [],
+      renderedAt.getTime(),
+    ) : null;
+    const displayStatus = live?.status ?? game.status;
+    const ownedIsHome = myTeamIds.includes(game.home_team_id ?? "");
+    const ownedParticipant = ownedIsHome ? game.homeParticipant : game.awayParticipant;
+    const opponent = ownedIsHome ? game.awayParticipant : game.homeParticipant;
+    const ownedRanking = game.rankings.find((ranking) => ranking.team_id === ownedParticipant.id);
+    const opponentRanking = game.rankings.find((ranking) => ranking.team_id === opponent.id);
+    return {
+      id: game.id,
+      week: game.week,
+      status: displayStatus,
+      dateLabel: gameDateLabel(game),
+      ownedTeamName: formatGameParticipant(ownedParticipant),
+      ownedTeam: ownedParticipant.kind === "internal" ? ownedParticipant.team : null,
+      ownedRank: ownedRanking?.rank ?? null,
+      opponentName: formatGameParticipant(opponent),
+      opponentTeam: opponent.kind === "internal" ? opponent.team : null,
+      opponentRank: opponentRanking?.rank ?? null,
+      context: game.neutral_site || ownedIsHome ? "vs" : "at",
+      homeScore: live?.homeScore ?? game.home_score,
+      awayScore: live?.awayScore ?? game.away_score,
+      liveContext: live?.status === "in_progress" ? [live.period ? `Q${live.period}` : null, live.clock].filter(Boolean).join(" · ") || null : null,
+      freshness: live ? liveFreshnessLabel(live.fetchedAt, renderedAt.getTime()) : null,
+    };
+  });
   const materializedLineupWeeks = draft?.status === "complete" ? await getMyMaterializedLineupWeeks(supabase, league.id, membership.id) : [];
   const requestedLineupWeek = requestedLineupWeekValue !== undefined && /^\d+$/.test(requestedLineupWeekValue) ? Number(requestedLineupWeekValue) : null;
   const defaultLineupWeek = relevantGames.find((game) => game.status !== "final" && game.status !== "canceled")?.week ?? standings.selectedWeek;
@@ -196,59 +221,7 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
 
             {myPicks.length > 0 && (
               <>
-                <section className="rounded-2xl bg-white p-5 shadow" aria-labelledby="watchlist-heading">
-                  <div className="flex items-end justify-between gap-4">
-                    <div><p className="text-xs font-black uppercase tracking-widest" style={{ color: favoriteTeam ? theme.primaryText : "#EA580C" }}>What matters next</p><h2 id="watchlist-heading" className="mt-1 text-2xl font-black">Saturday Watchlist</h2></div>
-                    <p className="text-xs font-semibold text-slate-500">Next {relevantGames.length} games</p>
-                  </div>
-                  {relevantGames.length ? (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {relevantGames.map((game) => {
-                        const providerId = game.external_provider === "cfbd" ? game.external_id : null;
-                        const live = providerId ? livePresentation(
-                          livePresentationData.games.get(providerId) ?? null,
-                          livePresentationData.snapshots.get(providerId) ?? [],
-                          renderedAt.getTime(),
-                        ) : null;
-                        const displayStatus = live?.status ?? game.status;
-                        const displayHomeScore = live?.homeScore ?? game.home_score;
-                        const displayAwayScore = live?.awayScore ?? game.away_score;
-                        const liveContext = live?.status === "in_progress"
-                          ? [live.period ? `Q${live.period}` : null, live.clock].filter(Boolean).join(" · ")
-                          : null;
-                        const ownedIsHome = myTeamIds.includes(game.home_team_id ?? "");
-                        const ownedParticipant = ownedIsHome ? game.homeParticipant : game.awayParticipant;
-                        const opponent = ownedIsHome ? game.awayParticipant : game.homeParticipant;
-                        const ownedRanking = game.rankings.find((ranking) => ranking.team_id === ownedParticipant?.id);
-                        const opponentRanking = game.rankings.find((ranking) => ranking.team_id === opponent?.id);
-                        const context = game.neutral_site ? "vs" : ownedIsHome ? "vs" : "at";
-                        return (
-                          <article key={game.id} className={`rounded-xl border p-4 ${displayStatus === "in_progress" ? "border-orange-400 bg-orange-50" : "border-slate-200 bg-slate-50"}`}>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${displayStatus === "in_progress" ? "bg-red-600 text-white" : "bg-blue-100 text-blue-800"}`}>{gameStatusLabel(displayStatus)}</span>
-                              <span className="text-xs font-bold text-slate-500">Week {game.week}</span>
-                            </div>
-                            <div className="mt-3 flex items-center gap-3">
-                              <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-white shadow-sm"><TeamLogo team={ownedParticipant?.kind === "internal" ? ownedParticipant.team : { school_name: formatGameParticipant(ownedParticipant) }} size="md" decorative /></span>
-                              <p className="text-lg font-black">{formatRankedTeamName(formatGameParticipant(ownedParticipant), ownedRanking?.rank)}</p>
-                            </div>
-                            <p className="my-1 text-xs font-bold uppercase tracking-wider text-slate-400">{context}</p>
-                            <div className="flex items-center gap-2"><TeamLogo team={opponent?.kind === "internal" ? opponent.team : { school_name: formatGameParticipant(opponent) }} size="sm" decorative /><p className="font-bold text-slate-700">{formatRankedTeamName(formatGameParticipant(opponent), opponentRanking?.rank)}</p></div>
-                            <div className="mt-3 border-t border-slate-200 pt-3">
-                              <p className="font-bold text-blue-950">{gameDateLabel(game)}</p>
-                              {displayStatus === "in_progress" && displayHomeScore !== null && displayAwayScore !== null && <p className="mt-1 text-sm font-black text-red-700">Live score: {displayAwayScore}–{displayHomeScore}</p>}
-                              {(displayStatus === "completed" || displayStatus === "final") && displayHomeScore !== null && displayAwayScore !== null && <p className="mt-1 text-sm font-black text-blue-950">Final: {displayAwayScore}–{displayHomeScore}</p>}
-                              {liveContext && <p className="mt-1 text-xs font-bold uppercase tracking-wide text-red-700">{liveContext}</p>}
-                              {live && <p className="mt-1 text-xs font-semibold text-slate-500">{liveFreshnessLabel(live.fetchedAt, renderedAt.getTime())}</p>}
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="mt-4 rounded-xl bg-slate-100 p-4 text-slate-600">No current or upcoming games are on your synchronized schedule yet.</p>
-                  )}
-                </section>
+                <SaturdayWatchlist leagueId={league.id} games={watchlistGames} accentColor={favoriteTeam ? theme.primaryText : "#EA580C"} />
 
                 <section className="rounded-2xl bg-white p-5 shadow" aria-labelledby="teams-heading">
                   <div><p className="text-xs font-black uppercase tracking-widest text-orange-600">Your roster</p><h2 id="teams-heading" className="mt-1 text-2xl font-black">My Teams</h2></div>
