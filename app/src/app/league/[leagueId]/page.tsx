@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import FavoriteTeamSelector from "@/components/league/FavoriteTeamSelector";
+import LeagueChaos from "@/components/league/LeagueChaos";
 import SaturdayWatchlist, { type SaturdayWatchlistGame } from "@/components/league/SaturdayWatchlist";
 import TeamNameForm from "@/components/league/TeamNameForm";
 import WeeklyLineup from "@/components/league/WeeklyLineup";
@@ -222,6 +223,7 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
             {myPicks.length > 0 && (
               <>
                 <SaturdayWatchlist leagueId={league.id} games={watchlistGames} accentColor={favoriteTeam ? theme.primaryText : "#EA580C"} />
+                <LeagueChaos leagueId={league.id} />
 
                 <section className="rounded-2xl bg-white p-5 shadow" aria-labelledby="teams-heading">
                   <div><p className="text-xs font-black uppercase tracking-widest text-orange-600">Your roster</p><h2 id="teams-heading" className="mt-1 text-2xl font-black">My Teams</h2></div>
