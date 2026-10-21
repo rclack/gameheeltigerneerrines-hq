@@ -288,6 +288,24 @@ export type Database = {
         Row: { id: string; provider: "cfbd"; trigger_type: "manual" | "scheduled"; league_ids: string[]; lease_token: string; started_at: string; completed_at: string | null; status: "running" | "succeeded" | "failed"; provider_calls: number; scoreboard_calls: number; info_calls: number; provider_game_count: number; relevant_game_count: number; canonical_game_count: number; drafted_relevant_game_count: number; drafted_live_game_count: number; changed_game_count: number; unchanged_game_count: number; unmatched_game_count: number; quota_tier: string | null; quota_monthly_limit: number | null; quota_used: number | null; quota_remaining: number | null; quota_checked_at: string | null; error_category: string | null; error_message: string | null };
         Insert: never; Update: never; Relationships: [];
       };
+      league_chaos_settings: {
+        Row: { league_id: string; enabled: boolean; retention_months: number; last_success_at: string | null; last_observation_at: string | null; last_observation_key: string | null; consecutive_failures: number; last_error_category: string | null; updated_at: string };
+        Insert: { league_id: string; enabled?: boolean; retention_months?: number; last_success_at?: string | null; last_observation_at?: string | null; last_observation_key?: string | null; consecutive_failures?: number; last_error_category?: string | null; updated_at?: string };
+        Update: { enabled?: boolean; retention_months?: number; last_success_at?: string | null; last_observation_at?: string | null; last_observation_key?: string | null; consecutive_failures?: number; last_error_category?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+      league_chaos_events: {
+        Row: { event_key: string; episode_id: string; league_id: string; season: string; week: number; event_type: string; severity: string; lifecycle_state: "active" | "suspended" | "resolved"; state_fingerprint: string; source_identity: Json; facts: Json; reason_codes: string[]; game_id: string | null; provider_game_id: string | null; team_id: string | null; league_member_id: string | null; opponent_team_id: string | null; opponent_league_member_id: string | null; first_observed_at: string; last_observed_at: string; last_changed_at: string; resolved_at: string | null; resolution_reason: string | null; last_processed_observation_key: string; transition_sequence: number; created_at: string; updated_at: string };
+        Insert: never; Update: never; Relationships: [];
+      };
+      league_chaos_transitions: {
+        Row: { id: string; transition_identity: string; event_key: string; episode_id: string; league_id: string; season: string; week: number; sequence: number; transition_type: string; old_lifecycle_state: string | null; new_lifecycle_state: string; old_severity: string | null; new_severity: string; state_fingerprint: string; event_type: string; game_id: string | null; team_id: string | null; league_member_id: string | null; facts: Json; reason_codes: string[]; source_observation: Json; resolution_reason: string | null; observed_at: string; created_at: string };
+        Insert: never; Update: never; Relationships: [];
+      };
+      league_chaos_reconciliation_runs: {
+        Row: { id: string; league_id: string; observation_key: string; trigger_type: string; authority_state: string; observed_at: string; started_at: string; completed_at: string; status: string; candidates_evaluated: number; transitions_inserted: number; duplicate_observations: number; episodes_created: number; episodes_suspended: number; episodes_resumed: number; episodes_resolved: number; error_category: string | null };
+        Insert: never; Update: never; Relationships: [];
+      };
       league_recap_settings: {
         Row: { league_id: string; enabled: boolean; updated_by: string | null; created_at: string; updated_at: string };
         Insert: { league_id: string; enabled?: boolean; updated_by?: string | null; created_at?: string; updated_at?: string };
@@ -398,6 +416,8 @@ export type Database = {
       record_live_scoreboard_call_breakdown: { Args: { target_run_id: string; target_lease_token: string; target_scoreboard_calls: number; target_info_calls: number }; Returns: boolean };
       complete_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_games: Json; target_provider_calls: number; target_quota: Json }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
       fail_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_provider_calls: number; target_error_category: string; target_error_message: string }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
+      reconcile_league_chaos: { Args: { target_league_id: string; target_observation_key: string; target_observed_at: string; target_trigger: string; target_authority_state: string; target_candidates: Json; target_stale_game_ids?: string[]; target_settled_game_ids?: string[] }; Returns: Json };
+      record_league_chaos_reconciliation_failure: { Args: { target_league_id: string; target_trigger: string; target_error_category: string }; Returns: string | null };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";

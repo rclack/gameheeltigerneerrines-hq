@@ -6,6 +6,7 @@ import { automatedScoringEnabled, runAutomatedScoringSweep, type AutomatedScorin
 import { runScheduledRecapBatch } from "@/lib/recap/cron";
 import { isSundayInEastern, latestRecapWeek, prepareSundayRecap, RecapNotReadyError, sendPreparedSundayRecap } from "@/services/recapService";
 import { prepareScheduledWeeklyLineups, type WeeklyLineupPreparationResult } from "@/lib/lineup/scheduledPreparation";
+import { reconcileEnabledChaosLeagues } from "@/services/chaosService";
 
 export const maxDuration = 300;
 
@@ -73,8 +74,9 @@ export async function GET(request: Request) {
       failed: lineupPreparations.reduce((total, item) => total + item.failed, 0),
       leagues: lineupPreparations,
     };
+    const chaos = await reconcileEnabledChaosLeagues(supabase, leagueIds, "schedule_sync", true);
     const ok = outcome.failed === 0 && lineupPreparation.failed === 0 && scoring.failed === 0 && recaps.failed === 0;
-    return Response.json({ ok, ...outcome, lineupPreparation, scoring, recaps }, { status: ok ? 200 : 500 });
+    return Response.json({ ok, ...outcome, lineupPreparation, scoring, recaps, chaos }, { status: ok ? 200 : 500 });
   } catch {
     return Response.json({ ok: false, error: "Scheduled synchronization could not run." }, { status: 503 });
   }

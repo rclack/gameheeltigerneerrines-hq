@@ -1,6 +1,7 @@
 import { configuredCronLeagueIds, isAuthorizedCronRequest } from "@/lib/cfbd/cron";
 import { createCronClient } from "@/lib/supabase/cron";
 import { pollLiveScoreboard } from "@/services/liveScoreboardService";
+import { reconcileEnabledChaosLeagues } from "@/services/chaosService";
 
 export const maxDuration = 60;
 
@@ -10,8 +11,10 @@ export async function GET(request: Request) {
   }
   try {
     const leagueIds = configuredCronLeagueIds(process.env.CFBD_CRON_LEAGUE_IDS);
-    const run = await pollLiveScoreboard(createCronClient(), leagueIds, "scheduled");
-    return Response.json({ ok: true, polled: Boolean(run), runId: run?.id ?? null });
+    const supabase = createCronClient();
+    const run = await pollLiveScoreboard(supabase, leagueIds, "scheduled");
+    const chaos = await reconcileEnabledChaosLeagues(supabase, leagueIds, run ? "live_poll" : "freshness", Boolean(run));
+    return Response.json({ ok: true, polled: Boolean(run), runId: run?.id ?? null, chaos });
   } catch {
     return Response.json({ ok: false, error: "Live scoreboard polling could not run." }, { status: 503 });
   }

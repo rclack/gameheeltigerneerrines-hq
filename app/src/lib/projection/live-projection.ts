@@ -36,7 +36,7 @@ export interface ProjectionOwnerResult {
   memberId: string; displayName: string; officialPoints: number; liveDelta: number; finalPendingDelta: number; projectedTotal: number;
   officialRank: number; projectedRank: number; rankMovement: number; contributingGames: ProjectedGameFact[]; benchPotential: ProjectedGameFact[];
 }
-export interface ProjectionContextItem { gameId: string; providerGameId: string | null; state: ProjectionGameState; label: string }
+export interface ProjectionContextItem { gameId: string; providerGameId: string | null; state: ProjectionGameState; label: string; sourceFingerprint?: string | null }
 export interface LiveProjectionResult {
   leagueId: string; season: string; competitionWeek: number; generatedAt: string; liveDataFetchedAt: string | null;
   freshnessState: "fresh" | "stale" | "unavailable"; officialAsOf: string | null; owners: ProjectionOwnerResult[];
@@ -111,7 +111,8 @@ export function buildLiveProjection(input: BuildLiveProjectionInput): LiveProjec
       else { homeScore = canonical.homeScore; awayScore = canonical.awayScore; state = homeScore === awayScore ? "tied" : "live"; }
     }
     if (canonical || game.status === "final") competitionWeek = Math.max(competitionWeek, game.week);
-    const contextItem = { gameId: game.id, providerGameId, state, label: state === "tied" ? "TIED — unresolved" : state } satisfies ProjectionContextItem;
+    const contextItem = { gameId: game.id, providerGameId, state, label: state === "tied" ? "TIED — unresolved" : state,
+      sourceFingerprint: canonical?.stateFingerprint ?? null } satisfies ProjectionContextItem;
     if (state === "tied") tiedGames.push(contextItem);
     if (state === "stale" || state === "malformed") staleGames.push(contextItem);
     if (state === "scheduled" || state === "delayed" || state === "suspended") notStartedGames.push(contextItem);
