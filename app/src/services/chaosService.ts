@@ -21,6 +21,15 @@ export async function reconcileLeagueChaos(supabase: SupabaseClient<Database>, l
     target_stale_game_ids: observation.staleGameIds, target_settled_game_ids: observation.settledGameIds,
   });
   if (result.error) throw result.error;
+  const payload = result.data as { duplicate?: boolean } | null;
+  if (payload?.duplicate === true) {
+    const touched = await supabase.rpc("touch_duplicate_chaos_observation", {
+      target_league_id: leagueId,
+      target_observation_key: observation.observationKey,
+      target_observed_at: observation.observedAt,
+    });
+    if (touched.error) throw touched.error;
+  }
   return result.data;
 }
 

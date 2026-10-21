@@ -5,6 +5,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
 const migration = readFileSync(new URL("../../supabase/migrations/20261021013518_league_chaos_transition_persistence.sql", import.meta.url), "utf8");
+const duplicateTouchMigration = readFileSync(new URL("../../supabase/migrations/20261021115750_touch_duplicate_chaos_observation.sql", import.meta.url), "utf8");
 const leagueId = "00000000-0000-4000-8000-000000000001";
 const gameId = "00000000-0000-4000-8000-000000000010";
 const teamId = "00000000-0000-4000-8000-000000000020";
@@ -27,6 +28,7 @@ async function database() {
     insert into public.cfb_games values ('${gameId}','${leagueId}');
   `);
   await db.exec(migration);
+  await db.exec(duplicateTouchMigration);
   await db.query("select public.set_league_chaos_enabled($1,true)", [leagueId]);
   return db;
 }
@@ -92,13 +94,29 @@ test("overlapping identical isolated reconciliations serialize to one created tr
   await db.close();
 });
 
+test("duplicate observations can advance freshness without creating history", async () => {
+  const db = await database();
+  await reconcile(db, "observation-duplicate-touch-0001", [candidate()]);
+  const before = await db.query<{ last_success_at: Date }>("select last_success_at from public.league_chaos_settings where league_id=$1", [leagueId]);
+  await db.query("select public.touch_duplicate_chaos_observation($1,$2,$3)", [
+    leagueId, "observation-duplicate-touch-0001", "2026-09-19T18:01:00Z",
+  ]);
+  const after = await db.query<{ last_success_at: Date; last_observation_at: Date }>(
+    "select last_success_at,last_observation_at from public.league_chaos_settings where league_id=$1", [leagueId]);
+  assert.ok(after.rows[0]!.last_success_at >= before.rows[0]!.last_success_at);
+  assert.equal(after.rows[0]!.last_observation_at.toISOString(), "2026-09-19T18:01:00.000Z");
+  assert.equal((await db.query("select 1 from public.league_chaos_reconciliation_runs")).rows.length, 1);
+  assert.equal((await db.query("select 1 from public.league_chaos_transitions")).rows.length, 1);
+  await db.close();
+});
+
 test("authenticated can read its scoped history but has no write grants", async () => {
   const db = await database();
   const grants = await db.query<{ privilege_type: string }>(`select privilege_type from information_schema.role_table_grants
     where grantee='authenticated' and table_name in ('league_chaos_events','league_chaos_transitions') order by privilege_type`);
   assert.deepEqual([...new Set(grants.rows.map((row) => row.privilege_type))], ["SELECT"]);
   const functionGrants = await db.query<{ grantee: string }>(`select grantee from information_schema.role_routine_grants
-    where routine_name='reconcile_league_chaos' and grantee in ('PUBLIC','anon','authenticated')`);
+    where routine_name in ('reconcile_league_chaos','touch_duplicate_chaos_observation') and grantee in ('PUBLIC','anon','authenticated')`);
   assert.equal(functionGrants.rows.length, 0);
   await db.close();
 });

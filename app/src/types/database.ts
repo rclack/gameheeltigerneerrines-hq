@@ -417,7 +417,9 @@ export type Database = {
       complete_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_games: Json; target_provider_calls: number; target_quota: Json }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
       fail_live_scoreboard_poll: { Args: { target_run_id: string; target_lease_token: string; target_provider_calls: number; target_error_category: string; target_error_message: string }; Returns: Database["public"]["Tables"]["live_scoreboard_poll_runs"]["Row"] };
       reconcile_league_chaos: { Args: { target_league_id: string; target_observation_key: string; target_observed_at: string; target_trigger: string; target_authority_state: string; target_candidates: Json; target_stale_game_ids?: string[]; target_settled_game_ids?: string[] }; Returns: Json };
+      touch_duplicate_chaos_observation: { Args: { target_league_id: string; target_observation_key: string; target_observed_at: string }; Returns: undefined };
       record_league_chaos_reconciliation_failure: { Args: { target_league_id: string; target_trigger: string; target_error_category: string }; Returns: string | null };
+      cleanup_league_chaos_history: { Args: { target_now?: string }; Returns: number };
     };
     Enums: {
       league_member_role: "commissioner" | "owner";
